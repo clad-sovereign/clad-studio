@@ -1,6 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-// Allow deprecated weight constants for MVP (will be replaced by benchmarks post-grant)
-#![allow(deprecated)]
 #![allow(clippy::let_unit_value)]
 
 use frame_support::{dispatch::DispatchResult, ensure, pallet_prelude::*, traits::EnsureOrigin};
@@ -8,6 +6,7 @@ use frame_system::{ensure_signed, pallet_prelude::*};
 use sp_std::prelude::*;
 
 pub use pallet::*;
+pub use weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -17,6 +16,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+
+pub mod weights;
 
 /// The current storage version.
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -29,6 +30,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -98,7 +100,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(10_000)]
+        #[pallet::weight(T::WeightInfo::mint())]
         pub fn mint(origin: OriginFor<T>, to: T::AccountId, amount: u128) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
             TotalSupply::<T>::mutate(|supply| *supply += amount);
@@ -108,7 +110,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(10_000)]
+        #[pallet::weight(T::WeightInfo::transfer())]
         pub fn transfer(origin: OriginFor<T>, to: T::AccountId, amount: u128) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(Whitelist::<T>::get(&sender), Error::<T>::NotWhitelisted);
@@ -123,7 +125,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(10_000)]
+        #[pallet::weight(T::WeightInfo::freeze())]
         pub fn freeze(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
             Frozen::<T>::insert(&account, true);
@@ -132,7 +134,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(10_000)]
+        #[pallet::weight(T::WeightInfo::unfreeze())]
         pub fn unfreeze(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
             Frozen::<T>::remove(&account);
@@ -141,7 +143,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight(10_000)]
+        #[pallet::weight(T::WeightInfo::add_to_whitelist())]
         pub fn add_to_whitelist(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
             Whitelist::<T>::insert(&account, true);
@@ -150,7 +152,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(5)]
-        #[pallet::weight(10_000)]
+        #[pallet::weight(T::WeightInfo::remove_from_whitelist())]
         pub fn remove_from_whitelist(
             origin: OriginFor<T>,
             account: T::AccountId,

@@ -8,26 +8,20 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{ConstU32, ConstU64, Everything},
-    weights::{
-        constants::WEIGHT_REF_TIME_PER_SECOND, IdentityFee, Weight, WeightToFeeCoefficient,
-        WeightToFeeCoefficients, WeightToFeePolynomial,
-    },
+    traits::{ConstU32, Everything, Get},
+    weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
-use frame_system::{
-    limits::{BlockLength, BlockWeights},
-    EnsureRoot,
-};
+use frame_system::EnsureRoot;
 pub use pallet_clad_token;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys,
-    traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify},
+    generic, impl_opaque_keys,
+    traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
-use sp_std::prelude::*;
+use sp_std::{borrow::Cow, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -35,11 +29,9 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     dispatch::DispatchClass,
-    pallet_prelude::Get,
     sp_runtime::{MultiAddress, Perbill, Permill},
     weights::{constants::RocksDbWeight, ConstantMultiplier},
 };
-pub use sp_runtime::BuildStorage;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -47,6 +39,7 @@ pub use sp_runtime::BuildStorage;
 /// to even the core data structures.
 pub mod opaque {
     use super::*;
+    use sp_runtime::{generic, traits::BlakeTwo256};
 
     pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
@@ -66,14 +59,14 @@ pub mod opaque {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("clad-runtime"),
-    impl_name: create_runtime_str!("clad-runtime"),
+    spec_name: Cow::Borrowed("clad-runtime"),
+    impl_name: Cow::Borrowed("clad-runtime"),
     authoring_version: 1,
     spec_version: 1,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
-    state_version: 1,
+    system_version: 1,
 };
 
 /// This determines the average expected block time that we are targeting.
@@ -103,9 +96,9 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 2400;
-    pub const Version: RuntimeVersion = VERSION;
-    /// We allow for 2 seconds of compute with a 6 second average block time.
-    pub BlockWeights: frame_system::limits::BlockWeights =
+
+
+ pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::with_sensible_defaults(
             Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
             NORMAL_DISPATCH_RATIO,
@@ -114,6 +107,22 @@ parameter_types! {
         ::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
     pub const SS58Prefix: u8 = 42;
 }
+
+pub struct Version;
+impl Get<RuntimeVersion> for Version {
+    fn get() -> RuntimeVersion {
+        VERSION
+    }
+}
+
+pub type BlockNumber = u32;
+pub type Signature = MultiSignature;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub type Balance = u128;
+pub type Nonce = u32;
+pub type Hash = sp_core::H256;
+pub type Address = MultiAddress<AccountId, ()>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
@@ -133,6 +142,9 @@ pub type UncheckedExtrinsic =
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
 
+/// Block type as expected by this runtime.
+pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
     Runtime,
@@ -141,21 +153,6 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
 >;
-
-/// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
-/// the specifics of the runtime. They can then be made to be agnostic over specific formats
-/// of data like extrinsics, allowing for them to continue syncing the network through upgrades
-/// to even the core data structures.
-pub use opaque::Block;
-
-pub type BlockNumber = u32;
-pub type Signature = MultiSignature;
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-pub type Balance = u128;
-pub type Nonce = u32;
-pub type Hash = sp_core::H256;
-pub type Address = MultiAddress<AccountId, ()>;
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
 // Configure FRAME pallets to include in runtime.
 
@@ -206,11 +203,26 @@ impl frame_system::Config for Runtime {
     type OnSetCode = ();
     type MaxConsumers = ConstU32<16>;
     type Nonce = Nonce;
+    /// Runtime task system (unused for simple runtime).
+    type RuntimeTask = ();
+    /// Weight info for transaction extensions.
+    type ExtensionsWeightInfo = ();
+    /// Single block migrations (unused).
+    type SingleBlockMigrations = ();
+    /// Multi-block migrator (unused).
+    type MultiBlockMigrator = ();
+    /// Pre-inherents hook.
+    type PreInherents = ();
+    /// Post-inherents hook.
+    type PostInherents = ();
+    /// Post-transactions hook.
+    type PostTransactions = ();
 }
 
 impl pallet_clad_token::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = pallet_clad_token::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -220,9 +232,6 @@ construct_runtime!(
         CladToken: pallet_clad_token,
     }
 );
-
-/// The address format for describing accounts.
-pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
