@@ -1,0 +1,19 @@
+[package]
+name = "clad-runtime"
+version = "0.1.0"
+authors = ["Clad Sovereign <helloclad@wideas.tech>"]
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
+pallet-clad-token = { path = "../pallets/clad-token", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-clad-token/std",
+]
