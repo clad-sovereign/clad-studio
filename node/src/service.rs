@@ -18,6 +18,7 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullPool =
     sc_transaction_pool::BasicPool<sc_transaction_pool::FullChainApi<FullClient, Block>, Block>;
 
+#[allow(clippy::result_large_err, clippy::type_complexity)]
 pub fn new_partial(
     config: &Configuration,
 ) -> Result<
@@ -68,13 +69,13 @@ pub fn new_partial(
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-    let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-        config.transaction_pool.clone(),
+    let transaction_pool = Arc::new(sc_transaction_pool::BasicPool::new_full(
+        sc_transaction_pool::Options::default(),
         config.role.is_authority().into(),
         config.prometheus_registry(),
         task_manager.spawn_essential_handle(),
         client.clone(),
-    );
+    ));
 
     let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
         client.clone(),
@@ -117,13 +118,14 @@ pub fn new_partial(
         import_queue,
         keystore_container,
         select_chain,
-        transaction_pool: Arc::new(transaction_pool),
+        transaction_pool,
         other: (grandpa_block_import, grandpa_link, telemetry),
     })
 }
 
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
+#[allow(clippy::result_large_err)]
 pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
     let sc_service::PartialComponents {
         client,
@@ -151,15 +153,14 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
     let peer_store = peer_store::PeerStore::new(Vec::new(), config.prometheus_registry().cloned());
     let peer_store_handle = Arc::new(peer_store.handle());
     task_manager.spawn_handle().spawn("peer-store", None, peer_store.run());
-    let notification_metrics =
-        sc_network::service::metrics::NotificationMetrics::new(config.prometheus_registry());
+
+    let notification_metrics = sc_network::NotificationMetrics::new(config.prometheus_registry());
 
     let (grandpa_protocol_config, grandpa_notification_service) =
-        sc_consensus_grandpa::grandpa_peers_set_config::<_, sc_network::NetworkWorker<_, _>>(
-            grandpa_protocol_name.clone(),
-            notification_metrics,
-            peer_store_handle,
-        );
+        sc_consensus_grandpa::grandpa_peers_set_config::<
+            Block,
+            sc_network::NetworkWorker<Block, <Block as sp_runtime::traits::Block>::Hash>,
+        >(grandpa_protocol_name.clone(), notification_metrics.clone(), peer_store_handle);
 
     net_config.add_notification_protocol(grandpa_protocol_config);
 
@@ -180,8 +181,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             block_announce_validator_builder: None,
             warp_sync_config: Some(sc_service::WarpSyncConfig::WithProvider(warp_sync)),
             block_relay: None,
-            metrics: sc_network::service::metrics::Metrics::register(config.prometheus_registry())
-                .unwrap_or_default(),
+            metrics: notification_metrics,
         })?;
 
     if config.offchain_worker.enabled {
@@ -208,7 +208,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         }
     }
 
-    let role = config.role.clone();
+    let role = config.role;
     let force_authoring = config.force_authoring;
     let backoff_authoring_blocks: Option<()> = None;
     let name = config.network.node_name.clone();

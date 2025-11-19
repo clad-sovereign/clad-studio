@@ -3,7 +3,6 @@ use crate::{
     cli::{Cli, Subcommand},
     service,
 };
-use clad_runtime::Block;
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 
@@ -43,6 +42,7 @@ impl SubstrateCli for Cli {
     }
 }
 
+#[allow(clippy::result_large_err)]
 pub fn run() -> sc_cli::Result<()> {
     let cli = <Cli as clap::Parser>::parse();
 
@@ -98,18 +98,10 @@ pub fn run() -> sc_cli::Result<()> {
                 Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
             })
         }
-        Some(Subcommand::Benchmark(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-
-            runner.sync_run(|config| {
-                if cfg!(feature = "runtime-benchmarks") {
-                    cmd.run::<Block, ()>(config)
-                } else {
-                    Err("Benchmarking wasn't enabled when building the node. \
-                    You can enable it with `--features runtime-benchmarks`."
-                        .into())
-                }
-            })
+        Some(Subcommand::Benchmark(_cmd)) => {
+            Err("Benchmarking is not yet implemented for this node. \
+                Please use frame-omni-bencher directly with the runtime WASM."
+                .into())
         }
         None => {
             let runner = cli.create_runner(&cli.run)?;

@@ -26,6 +26,7 @@ sp-block-builder = { default-features = false, git = "https://github.com/parityt
 sp-consensus-aura = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-11" }
 sp-consensus-grandpa = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-11" }
 sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-11" }
+sp-genesis-builder = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-11" }
 sp-inherents = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-11" }
 sp-offchain = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-11" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-11" }
@@ -61,6 +62,7 @@ std = [
     "sp-consensus-aura/std",
     "sp-consensus-grandpa/std",
     "sp-core/std",
+    "sp-genesis-builder/std",
     "sp-inherents/std",
     "sp-offchain/std",
     "sp-runtime/std",

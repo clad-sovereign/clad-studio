@@ -1,11 +1,11 @@
-use clad_runtime::{AccountId, RuntimeGenesisConfig, Signature, WASM_BINARY};
+use clad_runtime::{AccountId, Signature, WASM_BINARY};
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
-pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<Option<()>>;
 
 pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
@@ -84,7 +84,7 @@ fn testnet_genesis(
             "balances": endowed_accounts.iter().cloned().map(|k| (k, ENDOWMENT)).collect::<Vec<_>>(),
         },
         "aura": {
-            "authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
+            "authorities": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
         },
         "grandpa": {
             "authorities": initial_authorities.iter().map(|x| (x.1.clone(), 1u64)).collect::<Vec<_>>(),
@@ -94,7 +94,11 @@ fn testnet_genesis(
         },
         "cladToken": {
             "admin": root_key,
-            "whitelisted_accounts": endowed_accounts,
+            "tokenName": [],
+            "tokenSymbol": [],
+            "decimals": 18u8,
+            "whitelistedAccounts": endowed_accounts,
+            "initialBalances": [],
         },
     })
 }
