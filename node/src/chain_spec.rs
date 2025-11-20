@@ -43,7 +43,6 @@ pub fn development_config() -> Result<ChainSpec, String> {
                 get_account_id_from_seed::<sr25519::Public>("Dave"),
                 get_account_id_from_seed::<sr25519::Public>("Eve"),
             ],
-            true,
         ))
         .build())
 }
@@ -66,18 +65,24 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
                 get_account_id_from_seed::<sr25519::Public>("Eve"),
                 get_account_id_from_seed::<sr25519::Public>("Ferdie"),
             ],
-            true,
         ))
         .build())
 }
 
+/// Configure testnet genesis state
+///
+/// # Parameters
+/// - `initial_authorities`: Validator set for Aura (block production) and Grandpa (finality)
+/// - `root_key`: Sudo account with admin privileges
+/// - `endowed_accounts`: Accounts pre-funded with native balance and whitelisted for token transfers
 fn testnet_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
-    _enable_println: bool,
 ) -> serde_json::Value {
-    const ENDOWMENT: u128 = 1_000_000_000_000_000;
+    // Native token endowment: 1,000,000 tokens with 18 decimals (10^18 smallest units)
+    // Each test account receives 1M tokens for development/testing
+    const ENDOWMENT: u128 = 1_000_000 * 10u128.pow(18);
 
     serde_json::json!({
         "balances": {
@@ -94,11 +99,11 @@ fn testnet_genesis(
         },
         "cladToken": {
             "admin": root_key,
-            "tokenName": [],
-            "tokenSymbol": [],
+            "token_name": b"Clad Token".to_vec(),
+            "token_symbol": b"CLAD".to_vec(),
             "decimals": 18u8,
-            "whitelistedAccounts": endowed_accounts,
-            "initialBalances": [],
+            "whitelisted_accounts": endowed_accounts,
+            "initial_balances": [],
         },
     })
 }

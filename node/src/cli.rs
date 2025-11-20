@@ -10,6 +10,8 @@ pub struct Cli {
 }
 
 #[derive(Debug, clap::Subcommand)]
+// The Benchmark variant contains BenchmarkCmd which is significantly larger than other variants.
+// This is acceptable as subcommands are constructed once at startup, not in hot paths.
 #[allow(clippy::large_enum_variant)]
 pub enum Subcommand {
     /// Key management cli utilities

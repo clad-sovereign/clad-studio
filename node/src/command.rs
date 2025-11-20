@@ -42,6 +42,13 @@ impl SubstrateCli for Cli {
     }
 }
 
+/// Run the node CLI command handler.
+///
+/// Parses command-line arguments and dispatches to the appropriate subcommand handler
+/// (key management, block import/export, benchmarking, etc.) or starts the full node.
+///
+/// sc_cli::Error is large (176+ bytes) due to Substrate's error variants, but this function
+/// is only called once at startup, so the performance impact is negligible.
 #[allow(clippy::result_large_err)]
 pub fn run() -> sc_cli::Result<()> {
     let cli = <Cli as clap::Parser>::parse();

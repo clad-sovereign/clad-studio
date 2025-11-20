@@ -8,6 +8,11 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::sync::Arc;
 
+/// Grandpa block finalization justification period (512 blocks ≈ 51 minutes at 6s block time).
+/// This determines how often the chain generates proofs of finality that light clients can verify.
+/// Higher values reduce on-chain storage but increase light client sync time.
+const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
+
 type FullClient = sc_service::TFullClient<
     Block,
     RuntimeApi,
@@ -18,7 +23,21 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullPool =
     sc_transaction_pool::BasicPool<sc_transaction_pool::FullChainApi<FullClient, Block>, Block>;
 
-#[allow(clippy::result_large_err, clippy::type_complexity)]
+// Type aliases to reduce complexity in function signatures
+type GrandpaBlockImport =
+    sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
+type GrandpaLinkHalf = sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>;
+type PartialComponentsOther = (GrandpaBlockImport, GrandpaLinkHalf, Option<Telemetry>);
+
+/// Build the partial components needed for both full and light node services.
+///
+/// Returns the client, backend, select chain, import queue, transaction pool,
+/// and consensus-specific components (Grandpa block import + link half).
+///
+/// The return type is complex due to Substrate's service architecture requiring
+/// numerous generic type parameters. Type aliases reduce but don't eliminate this.
+/// ServiceError is large (176+ bytes) but necessary for comprehensive error handling.
+#[allow(clippy::type_complexity, clippy::result_large_err)]
 pub fn new_partial(
     config: &Configuration,
 ) -> Result<
@@ -28,16 +47,7 @@ pub fn new_partial(
         FullSelectChain,
         sc_consensus::DefaultImportQueue<Block>,
         FullPool,
-        (
-            sc_consensus_grandpa::GrandpaBlockImport<
-                FullBackend,
-                Block,
-                FullClient,
-                FullSelectChain,
-            >,
-            sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
-            Option<Telemetry>,
-        ),
+        PartialComponentsOther,
     >,
     ServiceError,
 > {
@@ -123,8 +133,13 @@ pub fn new_partial(
     })
 }
 
-const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
-
+/// Build the full node service including consensus, networking, and RPC endpoints.
+///
+/// Starts Aura (block production), Grandpa (finality), transaction pool, RPC server,
+/// and all necessary background tasks for a fully functional blockchain node.
+///
+/// ServiceError is large (176+ bytes) for comprehensive error variants, acceptable
+/// as this function is called once during node initialization.
 #[allow(clippy::result_large_err)]
 pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
     let sc_service::PartialComponents {
