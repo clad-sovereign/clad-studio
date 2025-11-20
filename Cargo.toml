@@ -12,3 +12,9 @@ edition = "2021"
 license = "Apache-2.0"
 homepage = "https://clad.so"
 repository = "https://github.com/clad-sovereign/clad-studio"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1
+opt-level = 3
