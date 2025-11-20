@@ -99,11 +99,11 @@ fn testnet_genesis(
         },
         "cladToken": {
             "admin": root_key,
-            "token_name": b"Clad Token".to_vec(),
-            "token_symbol": b"CLAD".to_vec(),
+            "tokenName": b"Clad Token".to_vec(),
+            "tokenSymbol": b"CLAD".to_vec(),
             "decimals": 18u8,
-            "whitelisted_accounts": endowed_accounts,
-            "initial_balances": [],
+            "whitelistedAccounts": endowed_accounts,
+            "initialBalances": [],
         },
     })
 }
