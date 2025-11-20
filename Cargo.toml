@@ -2,6 +2,7 @@
 members = [
     "pallets/clad-token",
     "runtime",
+    "node",
 ]
 resolver = "2"
 

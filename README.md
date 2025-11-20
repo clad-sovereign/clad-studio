@@ -1,5 +1,8 @@
 # Clad Studio
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CI](https://github.com/clad-sovereign/clad-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/clad-sovereign/clad-studio/actions)
+
 **Open-source tokenization toolkit for sovereign and emerging-market real-world assets**
 Polkadot / Substrate • Rust • Compliance-first • Mobile-native • Geopolitically neutral
 
@@ -11,18 +14,83 @@ Primary reference: Paraguay sovereign equity tokenization (2025).
 
 | Component                  | Status          | Description |
 |----------------------------|-----------------|-------------|
-| `pallet-clad-token`        | Complete (MVP)  | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Extensible for voting rights and repayment oracles. |
-| `clad-mobile`              | In development (Q1 2026) | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. Eliminates browser/extension dependency for officials. |
+| `pallet-clad-token`        | ✅ Complete (MVP)  | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Extensible for voting rights and repayment oracles. |
+| `clad-node`                | ✅ Complete (Milestone 2) | Substrate node with Aura consensus and Grandpa finality. Complete runtime integration with operational RPC endpoints. |
+| `clad-mobile`              | 🚧 Planned (Q1 2026) | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. Eliminates browser/extension dependency for officials. |
 
 ## Target jurisdictions (2026 pilots)
 Indonesia • Kazakhstan • Nigeria • Egypt • Peru • Vietnam • Côte d'Ivoire • Uzbekistan • Rwanda • Paraguay follow-ons
 
-## Development
+## Strategic positioning
+
+**Aligned with Polkadot SDK best practices for compliant RWA tokenization**
+Clad Studio implements the compliance-ready module approach described in Polkadot's official [RWA tokenization guide](https://polkadot.com/blog/real-world-assets-rwa-tokenization-guide/):
+- Regulatory compliance via built-in freeze, whitelist, and role-based access control
+- Institutional-grade security through Polkadot's shared security model
+- Cross-chain interoperability via XCM for DeFi integration and liquidity access
+
+**Filling the sovereign debt gap**
+While existing Polkadot RWA projects focus on real estate (Xcavate), commodities (TVVIN), energy credits (Energy Web), and private credit (Centrifuge), Clad Studio targets the unclaimed sovereign and emerging-market segment:
+- Tokenized sovereign debt issuance for finance ministries and debt-management offices
+- State-owned enterprise equity tokenization outside Western-controlled rails
+- Mobile-native signing infrastructure for officials who use iOS/Android as primary work devices
+
+This positions Clad Studio to become the reference implementation for sovereign RWA tokenization in the Polkadot ecosystem — building on Paraguay's 2025 precedent while creating reusable, grant-funded public infrastructure.
+
+## Quick Start
+
+### Prerequisites
+
+**macOS:**
+```bash
+brew install cmake pkg-config openssl git curl protobuf
+rustup target add wasm32-unknown-unknown
+```
+
+**Linux (Debian/Ubuntu):**
+```bash
+sudo apt install build-essential git clang curl libssl-dev llvm libudev-dev \
+  make protobuf-compiler pkg-config
+rustup target add wasm32-unknown-unknown
+```
+
+### Build & Run
 
 ```bash
+# Clone the repository
 git clone https://github.com/clad-sovereign/clad-studio.git
 cd clad-studio
-cargo build --release
+
+# Build the node (takes ~5-10 minutes first time)
+cargo build --release --locked
+
+# Start the node
+./target/release/clad-node --dev --tmp
+
+# You should see:
+# ✅ Genesis block initialized
+# ✅ Block production (every 6 seconds)
+# ✅ RPC server at ws://127.0.0.1:9944
+```
+
+### Available Commands
+
+```bash
+# Run tests
+cargo test --locked
+
+# Format code
+cargo fmt
+
+# Lint code
+cargo clippy --locked -- -D warnings
+```
+
+**⚠️ External RPC Access (Testing Only)**
+```bash
+# WARNING: Only use for local testing on private networks
+# DO NOT expose publicly without proper security configuration
+./target/release/clad-node --dev --tmp --rpc-external --rpc-cors all
 ```
 
 ## Roadmap
