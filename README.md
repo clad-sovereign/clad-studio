@@ -93,6 +93,49 @@ cargo clippy --locked -- -D warnings
 ./target/release/clad-node --dev --tmp --rpc-external --rpc-cors all
 ```
 
+### Multi-Validator Local Testnet
+
+To test consensus with multiple validators (Aura block production + Grandpa finality):
+
+```bash
+# Terminal 1 - Start Alice
+./target/release/clad-node \
+  --chain local \
+  --alice \
+  --tmp \
+  --unsafe-force-node-key-generation \
+  --port 30333 \
+  --rpc-port 9944
+
+# Terminal 2 - Start Bob
+./target/release/clad-node \
+  --chain local \
+  --bob \
+  --tmp \
+  --unsafe-force-node-key-generation \
+  --port 30334 \
+  --rpc-port 9945
+```
+
+**Why `--unsafe-force-node-key-generation`?**
+
+The `--tmp` flag creates temporary storage for blockchain data, but network keys require explicit generation. The `--unsafe-force-node-key-generation` flag automatically creates network keys when they don't exist.
+
+**Important:** This flag is named "unsafe" because it regenerates keys on each restart, which breaks peer connectivity in real deployments. Only use for ephemeral test environments.
+
+**For persistent local testnets:**
+```bash
+# Generate stable network keys (once)
+./target/release/clad-node key generate-node-key --file /path/to/alice.key
+./target/release/clad-node key generate-node-key --file /path/to/bob.key
+
+# Start validators with persistent keys (data survives restarts)
+./target/release/clad-node --chain local --alice --node-key-file /path/to/alice.key
+./target/release/clad-node --chain local --bob --node-key-file /path/to/bob.key
+```
+
+**Note:** The `--chain local` spec is for multi-validator testing only. Production sovereign chains require custom chain specifications with proper genesis configuration, validator session keys, and security hardening.
+
 ## Roadmap
 
 | Phase                  | Timeline         | Milestones |
