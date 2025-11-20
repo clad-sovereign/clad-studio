@@ -14,8 +14,9 @@ Primary reference: Paraguay sovereign equity tokenization (2025).
 
 | Component                  | Status          | Description |
 |----------------------------|-----------------|-------------|
-| `pallet-clad-token`        | Complete (MVP)  | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Extensible for voting rights and repayment oracles. |
-| `clad-mobile`              | In development (Q1 2026) | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. Eliminates browser/extension dependency for officials. |
+| `pallet-clad-token`        | ✅ Complete (MVP)  | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Extensible for voting rights and repayment oracles. |
+| `clad-node`                | ✅ Complete (Milestone 2) | Substrate node with Aura consensus and Grandpa finality. Complete runtime integration with operational RPC endpoints. |
+| `clad-mobile`              | 🚧 Planned (Q1 2026) | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. Eliminates browser/extension dependency for officials. |
 
 ## Target jurisdictions (2026 pilots)
 Indonesia • Kazakhstan • Nigeria • Egypt • Peru • Vietnam • Côte d'Ivoire • Uzbekistan • Rwanda • Paraguay follow-ons
@@ -36,12 +37,60 @@ While existing Polkadot RWA projects focus on real estate (Xcavate), commodities
 
 This positions Clad Studio to become the reference implementation for sovereign RWA tokenization in the Polkadot ecosystem — building on Paraguay's 2025 precedent while creating reusable, grant-funded public infrastructure.
 
-## Development
+## Quick Start
+
+### Prerequisites
+
+**macOS:**
+```bash
+brew install cmake pkg-config openssl git curl protobuf
+rustup target add wasm32-unknown-unknown
+```
+
+**Linux (Debian/Ubuntu):**
+```bash
+sudo apt install build-essential git clang curl libssl-dev llvm libudev-dev \
+  make protobuf-compiler pkg-config
+rustup target add wasm32-unknown-unknown
+```
+
+### Build & Run
 
 ```bash
+# Clone the repository
 git clone https://github.com/clad-sovereign/clad-studio.git
 cd clad-studio
-cargo build --release
+
+# Build the node (takes ~5-10 minutes first time)
+cargo build --release --locked
+
+# Start the node
+./target/release/clad-node --dev --tmp
+
+# You should see:
+# ✅ Genesis block initialized
+# ✅ Block production (every 6 seconds)
+# ✅ RPC server at ws://127.0.0.1:9944
+```
+
+### Available Commands
+
+```bash
+# Run tests
+cargo test --locked
+
+# Format code
+cargo fmt
+
+# Lint code
+cargo clippy --locked -- -D warnings
+```
+
+**⚠️ External RPC Access (Testing Only)**
+```bash
+# WARNING: Only use for local testing on private networks
+# DO NOT expose publicly without proper security configuration
+./target/release/clad-node --dev --tmp --rpc-external --rpc-cors all
 ```
 
 ## Roadmap
