@@ -148,3 +148,6 @@ The `--tmp` flag creates temporary storage for blockchain data, but network keys
 | Phase 3 – Deployment   | H2 2026 onward   | White-label deployments • Central-bank oracle integrations • Multi-jurisdiction operations |
 
 Contact: helloclad@wideas.tech
+
+> **Disclaimer**  
+> Clad Sovereign is pre-pilot software. It is not yet intended for production use or real fund issuance. Use only on testnets or local chains.
