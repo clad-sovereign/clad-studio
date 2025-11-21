@@ -1,5 +1,5 @@
-![Clad Signer Demo – Native iOS & Android](https://cdn.loom.com/sessions/thumbnails/dd334230db154f9891f46664ae02aec4-with-play.gif)
-*[Watch 60-second demo – November 2025]* (https://www.loom.com/share/dd334230db154f9891f46664ae02aec4)
+![Clad Signer Demo – Native iOS & Android](https://cdn.loom.com/sessions/thumbnails/dd334230db154f9891f46664ae02aec4-9e6c0699711bd8ff-full-play.gif#t=0.1)\
+*[Watch 60-second demo – November 2025](https://www.loom.com/share/dd334230db154f9891f46664ae02aec4)*
 
 # Clad Studio
 
