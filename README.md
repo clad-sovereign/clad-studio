@@ -19,7 +19,7 @@ Primary reference: Paraguay sovereign equity tokenization (2025).
 |----------------------------|-----------------|-------------|
 | `pallet-clad-token`        | ✅ Complete (MVP)  | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Extensible for voting rights and repayment oracles. |
 | `clad-node`                | ✅ Complete (Milestone 2) | Substrate node with Aura consensus and Grandpa finality. Complete runtime integration with operational RPC endpoints. |
-| `clad-mobile`              | 🚧 Planned (Q1 2026) | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. Eliminates browser/extension dependency for officials. |
+| `clad-mobile`              | 🚧 In Development | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. Production delivery: Feb 2026. |
 
 ## Target jurisdictions (2026 pilots)
 Indonesia • Kazakhstan • Nigeria • Egypt • Peru • Vietnam • Côte d'Ivoire • Uzbekistan • Rwanda • Paraguay follow-ons
@@ -143,8 +143,8 @@ The `--tmp` flag creates temporary storage for blockchain data, but network keys
 
 | Phase                  | Timeline         | Milestones |
 |------------------------|------------------|------------|
-| Phase 1 – Core         | Nov 2025 – Jan 2026 | Pallet complete • Minimal mobile signer • Grant submissions (Web3 Foundation / Polkadot Treasury) |
-| Phase 2 – Pilots       | Feb – Jun 2026   | 2–3 sovereign/SOE pilots ($10–100M range) • Full mobile admin dashboard |
+| Phase 1 – Foundation   | Nov 2025 – Feb 2026 | Pallet production hardening (benchmarking, weights, migrations) • Docker containerization • Production mobile signing infrastructure • Polkadot Open Source Grant execution |
+| Phase 2 – Pilots       | Mar – Jun 2026   | 2–3 sovereign/SOE pilots ($10–100M range) • Full mobile admin dashboard • Security audit |
 | Phase 3 – Deployment   | H2 2026 onward   | White-label deployments • Central-bank oracle integrations • Multi-jurisdiction operations |
 
 Contact: helloclad@wideas.tech
