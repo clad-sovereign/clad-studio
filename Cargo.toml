@@ -20,7 +20,8 @@ codegen-units = 1
 opt-level = 3
 
 # NOTE: Some dependencies are pinned to older versions in Cargo.lock due to edition2024 requirements
-# - linked_hash_set: pinned to v0.1.5 (v0.1.6 requires edition2024)
-# - comfy-table: pinned to v7.2.0 (v7.2.1 requires edition2024)
+# - linked_hash_set: pinned to v0.1.5 (v0.1.6+ requires edition2024)
+# - comfy-table: pinned to v7.1.4 (v7.2.0+ requires edition2024)
+# - base64ct: pinned to v1.7.3 (v1.8.0+ requires edition2024)
 # These are incompatible with stable Rust 1.81 required by polkadot-stable2412
 # To maintain: Use `cargo update -p <package> --precise <version>` when updating
