@@ -283,6 +283,23 @@ docker container prune
 2. Use more CPU cores: `docker-compose build --parallel`
 3. Ensure `.dockerignore` exists to exclude `target/` directory
 
+### Cargo Registry Corruption
+
+**Symptom**: Build fails with `error: failed to parse manifest at .../Cargo.toml` for a dependency like `base64ct`.
+
+**Solutions**:
+1. Retry the build (often resolves itself)
+2. Build with --no-cache: `docker-compose build --no-cache`
+3. Clear cargo cache and rebuild:
+```bash
+# Remove existing images
+docker rmi clad-studio_alice clad-studio_bob || true
+# Rebuild
+docker-compose build
+```
+
+This is a known transient issue with cargo's registry caching in containerized builds.
+
 ### Chain State Corrupted
 
 **Symptom**: Nodes crash on startup or blocks don't finalize.
