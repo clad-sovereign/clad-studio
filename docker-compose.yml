@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  alice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clad-alice
+    ports:
+      - "9944:9944"  # WebSocket RPC
+      - "9933:9933"  # HTTP RPC
+      - "30333:30333"  # P2P
+    volumes:
+      - alice-data:/clad-node/.local/share
+    command: [
+      "--alice",
+      "--validator",
+      "--base-path", "/clad-node/.local/share/alice",
+      "--chain", "local",
+      "--node-key", "0000000000000000000000000000000000000000000000000000000000000001",
+      "--port", "30333",
+      "--rpc-port", "9933",
+      "--rpc-external",
+      "--rpc-cors", "all",
+      "--rpc-methods", "Unsafe",
+      "--unsafe-rpc-external"
+    ]
+    networks:
+      - clad-network
+
+  bob:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clad-bob
+    ports:
+      - "9945:9944"  # WebSocket RPC (different host port)
+      - "9934:9933"  # HTTP RPC (different host port)
+      - "30334:30333"  # P2P (different host port)
+    volumes:
+      - bob-data:/clad-node/.local/share
+    command: [
+      "--bob",
+      "--validator",
+      "--base-path", "/clad-node/.local/share/bob",
+      "--chain", "local",
+      "--port", "30333",
+      "--rpc-port", "9933",
+      "--rpc-external",
+      "--rpc-cors", "all",
+      "--rpc-methods", "Unsafe",
+      "--unsafe-rpc-external",
+      "--bootnodes", "/dns/alice/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
+    ]
+    depends_on:
+      - alice
+    networks:
+      - clad-network
+
+volumes:
+  alice-data:
+  bob-data:
+
+networks:
+  clad-network:
+    driver: bridge
