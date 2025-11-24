@@ -185,7 +185,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         Vec::default(),
     ));
 
-    let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+    let (network, system_rpc_tx, tx_handler_controller, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
             net_config,
@@ -219,7 +219,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
                     offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
                 );
             }
-            Err(e) => log::warn!("Failed to start offchain workers: {:?}", e),
+            Err(e) => log::warn!("Failed to start offchain workers: {e:?}"),
         }
     }
 
@@ -333,6 +333,5 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         task_manager.spawn_essential_handle().spawn_blocking("grandpa-voter", None, grandpa_voter);
     }
 
-    network_starter.start_network();
     Ok(task_manager)
 }

@@ -309,7 +309,6 @@ impl pallet_sudo::Config for Runtime {
 }
 
 impl pallet_clad_token::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureRoot<AccountId>;
     type WeightInfo = pallet_clad_token::weights::SubstrateWeight<Runtime>;
 }
