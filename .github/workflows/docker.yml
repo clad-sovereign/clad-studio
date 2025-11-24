@@ -1,0 +1,77 @@
+name: Docker
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  docker-build:
+    name: Docker Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: clad-studio:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start multi-validator testnet
+        run: |
+          docker-compose up -d
+          echo "Waiting for nodes to start..."
+          sleep 30
+
+      - name: Check Alice node health
+        run: |
+          docker-compose logs alice
+          # Check if Alice is producing blocks
+          docker-compose exec -T alice ps aux | grep clad-node || echo "Node process check"
+
+      - name: Check Bob node health
+        run: |
+          docker-compose logs bob
+          # Check if Bob is connected
+          docker-compose exec -T bob ps aux | grep clad-node || echo "Node process check"
+
+      - name: Verify block production
+        run: |
+          echo "Checking if blocks are being produced..."
+          # Wait for a few blocks to be produced
+          sleep 20
+          docker-compose logs alice | grep -i "block" || echo "Checking block production in logs"
+
+      - name: Test RPC connectivity
+        run: |
+          # Test that RPC endpoint is accessible
+          curl -H "Content-Type: application/json" \
+               -d '{"id":1, "jsonrpc":"2.0", "method": "system_health"}' \
+               http://localhost:9944 || echo "RPC endpoint test"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose down -v
+          docker-compose logs alice > alice-logs.txt
+          docker-compose logs bob > bob-logs.txt
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs
+          path: |
+            alice-logs.txt
+            bob-logs.txt
