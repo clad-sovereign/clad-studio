@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# Target directory (build artifacts)
+target/
+**/target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Local config
+.claude/
+CLAUDE.md
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Misc
+.DS_Store
