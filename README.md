@@ -108,7 +108,9 @@ cargo clippy --locked -- -D warnings
 
 ### Multi-Validator Local Testnet
 
-To test consensus with multiple validators (Aura block production + Grandpa finality):
+#### Option 1: Quick 2-Node Setup (Fastest)
+
+For rapid testing of basic consensus (Aura block production + Grandpa finality):
 
 ```bash
 # Terminal 1 - Start Alice
@@ -131,20 +133,66 @@ To test consensus with multiple validators (Aura block production + Grandpa fina
 ```
 
 **Why `--unsafe-force-node-key-generation`?**
+Auto-generates network keys for `--tmp` ephemeral testnets. Only for quick local testing—keys regenerate on restart, breaking peer connectivity.
 
-The `--tmp` flag creates temporary storage for blockchain data, but network keys require explicit generation. The `--unsafe-force-node-key-generation` flag automatically creates network keys when they don't exist.
+#### Option 2: 3-Validator Network (Recommended for SDK Validation)
 
-**Important:** This flag is named "unsafe" because it regenerates keys on each restart, which breaks peer connectivity in real deployments. Only use for ephemeral test environments.
+For comprehensive consensus testing with GRANDPA finalization (requires 2/3 validators):
 
-**For persistent local testnets:**
 ```bash
-# Generate stable network keys (once)
-./target/release/clad-node key generate-node-key --file /path/to/alice.key
-./target/release/clad-node key generate-node-key --file /path/to/bob.key
+# Terminal 1 - Alice (bootnode)
+./target/release/clad-node \
+  --alice --validator \
+  --base-path /tmp/clad-alice \
+  --chain local \
+  --node-key 0000000000000000000000000000000000000000000000000000000000000001 \
+  --port 30333 \
+  --rpc-port 9944 \
+  --rpc-methods=unsafe
 
-# Start validators with persistent keys (data survives restarts)
-./target/release/clad-node --chain local --alice --node-key-file /path/to/alice.key
-./target/release/clad-node --chain local --bob --node-key-file /path/to/bob.key
+# Terminal 2 - Bob
+./target/release/clad-node \
+  --bob --validator \
+  --base-path /tmp/clad-bob \
+  --chain local \
+  --node-key 0000000000000000000000000000000000000000000000000000000000000002 \
+  --port 30334 \
+  --rpc-port 9945 \
+  --rpc-methods=unsafe \
+  --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+
+# Terminal 3 - Charlie
+./target/release/clad-node \
+  --charlie --validator \
+  --base-path /tmp/clad-charlie \
+  --chain local \
+  --node-key 0000000000000000000000000000000000000000000000000000000000000003 \
+  --port 30335 \
+  --rpc-port 9946 \
+  --rpc-methods=unsafe \
+  --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+```
+
+**Verify consensus is working:**
+```bash
+# Check block production (should show "best: #N, finalized #N-2, peers: 2")
+curl -H "Content-Type: application/json" \
+  -d '{"id":1, "jsonrpc":"2.0", "method": "system_health"}' \
+  http://localhost:9944 | jq
+
+# Expected output: {"peers": 2, "isSyncing": false}
+```
+
+**Why 3 validators?**
+- GRANDPA requires 2/3 supermajority for finalization
+- Tests realistic network partitioning scenarios
+- Matches typical proof-of-authority testnet configurations
+- Validates SDK upgrade compatibility (block production + finalization + peer discovery)
+
+**Cleanup:**
+```bash
+pkill clad-node
+rm -rf /tmp/clad-*
 ```
 
 **Note:** The `--chain local` spec is for multi-validator testing only. Production sovereign chains require custom chain specifications with proper genesis configuration, validator session keys, and security hardening.

@@ -70,7 +70,6 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAdmin {
 }
 
 impl pallet_clad_token::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureAdmin;
     type WeightInfo = ();
 }
