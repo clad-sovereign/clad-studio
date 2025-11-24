@@ -15,11 +15,11 @@ Primary reference: Paraguay sovereign equity tokenization (2025).
 
 ## Components
 
-| Component                  | Status          | Description |
-|----------------------------|-----------------|-------------|
-| `pallet-clad-token`        | ✅ Complete (MVP)  | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Extensible for voting rights and repayment oracles. |
-| `clad-node`                | ✅ Complete (Milestone 2) | Substrate node with Aura consensus and Grandpa finality. Complete runtime integration with operational RPC endpoints. |
-| `clad-mobile`              | 🚧 In Development | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. Production delivery: Feb 2026. |
+| Component           | Repository | Status | Description |
+|---------------------|------------|--------|-------------|
+| `pallet-clad-token` | [clad-studio](https://github.com/clad-sovereign/clad-studio) | ✅ Functional | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Production hardening in progress. |
+| `clad-node`         | [clad-studio](https://github.com/clad-sovereign/clad-studio) | ✅ Functional | Substrate node with Aura consensus and Grandpa finality. Enables local multi-validator testnet. |
+| `clad-signer`       | [clad-mobile](https://github.com/clad-sovereign/clad-mobile) | 🚧 In Development | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. |
 
 ## Target Markets
 
