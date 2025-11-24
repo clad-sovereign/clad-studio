@@ -36,36 +36,67 @@ jobs:
 
       - name: Check Alice node health
         run: |
+          echo "=== Alice Node Logs ==="
           docker-compose logs alice
-          # Check if Alice is producing blocks
-          docker-compose exec -T alice ps aux | grep clad-node || echo "Node process check"
+
+          # Verify container is running
+          if ! docker-compose ps alice | grep -q "Up"; then
+            echo "❌ Alice node container is not running"
+            exit 1
+          fi
 
       - name: Check Bob node health
         run: |
+          echo "=== Bob Node Logs ==="
           docker-compose logs bob
-          # Check if Bob is connected
-          docker-compose exec -T bob ps aux | grep clad-node || echo "Node process check"
+
+          # Verify container is running
+          if ! docker-compose ps bob | grep -q "Up"; then
+            echo "❌ Bob node container is not running"
+            exit 1
+          fi
 
       - name: Verify block production
         run: |
-          echo "Checking if blocks are being produced..."
-          # Wait for a few blocks to be produced
+          echo "Waiting for block production..."
           sleep 20
-          docker-compose logs alice | grep -i "block" || echo "Checking block production in logs"
+
+          echo "=== Checking Alice logs for block production ==="
+          if docker-compose logs alice | grep -E "(Imported|Prepared block|best: #[1-9])"; then
+            echo "✅ Blocks are being produced"
+          else
+            echo "❌ No block production detected in logs"
+            docker-compose logs alice
+            exit 1
+          fi
 
       - name: Test RPC connectivity
         run: |
-          # Test that RPC endpoint is accessible
-          curl -H "Content-Type: application/json" \
+          echo "Testing HTTP RPC endpoint (port 9933)..."
+          RESPONSE=$(curl -s -H "Content-Type: application/json" \
                -d '{"id":1, "jsonrpc":"2.0", "method": "system_health"}' \
-               http://localhost:9944 || echo "RPC endpoint test"
+               http://localhost:9933)
+
+          if echo "$RESPONSE" | grep -q "result"; then
+            echo "✅ RPC endpoint is accessible"
+            echo "$RESPONSE"
+          else
+            echo "❌ RPC endpoint test failed"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Capture logs
+        if: always()
+        run: |
+          echo "Capturing logs before cleanup..."
+          docker-compose logs alice > alice-logs.txt 2>&1
+          docker-compose logs bob > bob-logs.txt 2>&1
 
       - name: Cleanup
         if: always()
         run: |
           docker-compose down -v
-          docker-compose logs alice > alice-logs.txt
-          docker-compose logs bob > bob-logs.txt
 
       - name: Upload logs on failure
         if: failure()
