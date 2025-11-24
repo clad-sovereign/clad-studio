@@ -30,17 +30,17 @@ jobs:
 
       - name: Start multi-validator testnet
         run: |
-          docker-compose up -d
+          docker compose up -d
           echo "Waiting for nodes to start..."
           sleep 30
 
       - name: Check Alice node health
         run: |
           echo "=== Alice Node Logs ==="
-          docker-compose logs alice
+          docker compose logs alice
 
           # Verify container is running
-          if ! docker-compose ps alice | grep -q "Up"; then
+          if ! docker compose ps alice | grep -q "Up"; then
             echo "❌ Alice node container is not running"
             exit 1
           fi
@@ -48,10 +48,10 @@ jobs:
       - name: Check Bob node health
         run: |
           echo "=== Bob Node Logs ==="
-          docker-compose logs bob
+          docker compose logs bob
 
           # Verify container is running
-          if ! docker-compose ps bob | grep -q "Up"; then
+          if ! docker compose ps bob | grep -q "Up"; then
             echo "❌ Bob node container is not running"
             exit 1
           fi
@@ -62,11 +62,11 @@ jobs:
           sleep 20
 
           echo "=== Checking Alice logs for block production ==="
-          if docker-compose logs alice | grep -E "(Imported|Prepared block|best: #[1-9])"; then
+          if docker compose logs alice | grep -E "(Imported|Prepared block|best: #[1-9])"; then
             echo "✅ Blocks are being produced"
           else
             echo "❌ No block production detected in logs"
-            docker-compose logs alice
+            docker compose logs alice
             exit 1
           fi
 
@@ -90,13 +90,13 @@ jobs:
         if: always()
         run: |
           echo "Capturing logs before cleanup..."
-          docker-compose logs alice > alice-logs.txt 2>&1
-          docker-compose logs bob > bob-logs.txt 2>&1
+          docker compose logs alice > alice-logs.txt 2>&1
+          docker compose logs bob > bob-logs.txt 2>&1
 
       - name: Cleanup
         if: always()
         run: |
-          docker-compose down -v
+          docker compose down -v
 
       - name: Upload logs on failure
         if: failure()

@@ -19,6 +19,8 @@ strip = true
 codegen-units = 1
 opt-level = 3
 
-# NOTE: linked_hash_set is pinned to v0.1.5 in Cargo.lock
-# v0.1.6 requires edition2024 (nightly-only), incompatible with stable Rust 1.81
-# To maintain: DO NOT run `cargo update -p linked_hash_set` without --precise 0.1.5
+# NOTE: Some dependencies are pinned to older versions in Cargo.lock due to edition2024 requirements
+# - linked_hash_set: pinned to v0.1.5 (v0.1.6 requires edition2024)
+# - comfy-table: pinned to v7.2.0 (v7.2.1 requires edition2024)
+# These are incompatible with stable Rust 1.81 required by polkadot-stable2412
+# To maintain: Use `cargo update -p <package> --precise <version>` when updating
