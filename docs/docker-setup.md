@@ -98,6 +98,9 @@ curl -H "Content-Type: application/json" \
 curl -H "Content-Type: application/json" \
      -d '{"id":1, "jsonrpc":"2.0", "method": "chain_getHeader"}' \
      http://localhost:9933
+
+# Check Prometheus metrics
+curl http://localhost:9615/metrics
 ```
 
 ## Network Architecture
@@ -132,10 +135,16 @@ The testnet uses the built-in `local` chain spec with:
 
 ### Ports
 
-| Service | WebSocket | HTTP | P2P   |
-|---------|-----------|------|-------|
-| Alice   | 9944      | 9933 | 30333 |
-| Bob     | 9945      | 9934 | 30334 |
+| Service | WebSocket | HTTP | P2P   | Prometheus |
+|---------|-----------|------|-------|------------|
+| Alice   | 9944      | 9933 | 30333 | 9615       |
+| Bob     | 9945      | 9934 | 30334 | 9616       |
+
+**Port Descriptions:**
+- **WebSocket (9944/9945)**: JSON-RPC over WebSocket for real-time blockchain interaction
+- **HTTP (9933/9934)**: JSON-RPC over HTTP for standard API calls
+- **P2P (30333/30334)**: Peer-to-peer networking for block propagation
+- **Prometheus (9615/9616)**: Metrics endpoint for monitoring and observability
 
 ### Data Persistence
 

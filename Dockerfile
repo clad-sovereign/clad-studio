@@ -58,7 +58,8 @@ USER clad
 # 9944: WebSocket RPC
 # 9933: HTTP RPC
 # 30333: P2P networking
-EXPOSE 9944 9933 30333
+# 9615: Prometheus metrics
+EXPOSE 9944 9933 30333 9615
 
 # Set working directory
 WORKDIR /clad-node
