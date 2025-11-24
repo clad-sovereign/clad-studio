@@ -18,8 +18,9 @@ RUN apt-get update && \
     pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
-# Install wasm target for Rust
-RUN rustup target add wasm32-unknown-unknown
+# Install wasm target and rust-src for Rust
+RUN rustup target add wasm32-unknown-unknown && \
+    rustup component add rust-src
 
 # Set working directory
 WORKDIR /clad-studio
