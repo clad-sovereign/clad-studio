@@ -6,7 +6,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI](https://github.com/clad-sovereign/clad-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/clad-sovereign/clad-studio/actions)
 
-**Open-source tokenization toolkit for sovereign and emerging-market real-world assets**
+**Open-source tokenization toolkit for sovereign and emerging-market real-world assets**  
 Polkadot / Substrate • Rust • Compliance-first • Mobile-native • Geopolitically neutral
 
 Designed for finance ministries, debt-management offices, and state-owned enterprises issuing compliant tokenized debt or equity on fully controllable infrastructure.
@@ -36,13 +36,13 @@ Emerging-market sovereigns and state-owned enterprises in:
 
 ## Strategic positioning
 
-**Aligned with Polkadot SDK best practices for compliant RWA tokenization**
+**Aligned with Polkadot SDK best practices for compliant RWA tokenization**  
 Clad Studio implements the compliance-ready module approach described in Polkadot's official [RWA tokenization guide](https://polkadot.com/blog/real-world-assets-rwa-tokenization-guide/):
 - Regulatory compliance via built-in freeze, whitelist, and role-based access control
 - Institutional-grade security through Polkadot's shared security model
 - Cross-chain interoperability via XCM for DeFi integration and liquidity access
 
-**Filling the sovereign debt gap**
+**Filling the sovereign debt gap**  
 While existing Polkadot RWA projects focus on real estate (Xcavate), commodities (TVVIN), energy credits (Energy Web), and private credit (Centrifuge), Clad Studio targets the unclaimed sovereign and emerging-market segment:
 - Tokenized sovereign debt issuance for finance ministries and debt-management offices
 - State-owned enterprise equity tokenization on self-hosted infrastructure
