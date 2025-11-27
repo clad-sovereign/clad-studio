@@ -6,6 +6,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+#[cfg(feature = "runtime-benchmarks")]
+frame_benchmarking::define_benchmarks!([pallet_clad_token, CladToken]);
 use frame_support::{
     construct_runtime, parameter_types,
     traits::{ConstU32, Everything, Get},
@@ -480,6 +482,40 @@ impl_runtime_apis! {
 
         fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
             vec![]
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl frame_benchmarking::Benchmark<Block> for Runtime {
+        fn benchmark_metadata(extra: bool) -> (
+            sp_std::vec::Vec<frame_benchmarking::BenchmarkList>,
+            sp_std::vec::Vec<frame_support::traits::StorageInfo>,
+        ) {
+            use frame_benchmarking::BenchmarkList;
+            use frame_support::traits::StorageInfoTrait;
+
+            let mut list = sp_std::vec::Vec::<BenchmarkList>::new();
+            list_benchmarks!(list, extra);
+
+            let storage_info = AllPalletsWithSystem::storage_info();
+            (list, storage_info)
+        }
+
+        fn dispatch_benchmark(
+            config: frame_benchmarking::BenchmarkConfig,
+        ) -> Result<sp_std::vec::Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+            use frame_benchmarking::BenchmarkBatch;
+            use frame_support::traits::WhitelistedStorageKeys;
+
+            let whitelist: sp_std::vec::Vec<_> = AllPalletsWithSystem::whitelisted_storage_keys()
+                .into_iter()
+                .collect();
+
+            let mut batches = sp_std::vec::Vec::<BenchmarkBatch>::new();
+            let params = (&config, &whitelist);
+            add_benchmarks!(params, batches);
+
+            Ok(batches)
         }
     }
 }
