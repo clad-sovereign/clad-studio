@@ -9,6 +9,7 @@ authors = ["Clad Sovereign <helloclad@wideas.tech>"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11", default-features = false, features = ["derive"] }
+log = { version = "0.4", default-features = false }
 frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2509-2" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2509-2" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2509-2" }
@@ -16,6 +17,9 @@ sp-runtime = { default-features = false, git = "https://github.com/paritytech/po
 
 # Benchmarking
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2509-2", optional = true }
+
+# Try-runtime
+frame-try-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2509-2", optional = true }
 
 [dev-dependencies]
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2509-2" }
@@ -26,14 +30,22 @@ default = ["std"]
 std = [
     "codec/std",
     "scale-info/std",
+    "log/std",
     "frame-support/std",
     "frame-system/std",
     "sp-std/std",
     "sp-runtime/std",
     "frame-benchmarking?/std",
+    "frame-try-runtime?/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
+]
+try-runtime = [
+    "frame-try-runtime/try-runtime",
+    "frame-support/try-runtime",
+    "frame-system/try-runtime",
+    "sp-runtime/try-runtime",
 ]
