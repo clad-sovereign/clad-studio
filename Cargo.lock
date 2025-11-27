@@ -1380,6 +1380,7 @@ dependencies = [
 name = "clad-runtime"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
