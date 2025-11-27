@@ -282,6 +282,11 @@ mod tests {
     use crate::mock::{new_test_ext, Test};
     use frame_support::traits::StorageVersion;
 
+    // Note: Weight assertions are omitted in these tests because the mock runtime
+    // uses `DbWeight = ()` which returns zero for all operations. Real weight
+    // validation should be performed via `try-runtime` against production state
+    // when non-trivial migrations (v2+) are implemented.
+
     /// Test that migration correctly updates storage version from 0 to 1.
     #[test]
     fn migration_v1_from_v0_works() {
