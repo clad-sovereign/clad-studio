@@ -303,7 +303,12 @@ fn minting_increases_total_supply() {
 // ============================================================================
 
 /// Tests that minting zero tokens works correctly.
-/// While unusual, zero-amount mints are valid and should succeed.
+///
+/// Zero-amount mints are intentionally allowed and emit events. This follows
+/// ERC-20/ERC-3643 standards and enables:
+/// - Triggering compliance hooks without actual token movement
+/// - Complete audit trails for all admin actions
+/// - Identity verification workflows (proving control of an account)
 #[test]
 fn mint_zero_amount_works() {
     new_test_ext().execute_with(|| {
@@ -402,7 +407,12 @@ fn remove_non_whitelisted_account_works() {
 }
 
 /// Tests that transferring zero tokens works correctly.
-/// Zero-amount transfers are valid (useful for triggering hooks in some systems).
+///
+/// Zero-amount transfers are intentionally allowed and emit events. This follows
+/// ERC-20/ERC-3643 standards and is useful for:
+/// - Triggering transfer hooks in compliance systems
+/// - Proving account ownership/control
+/// - Maintaining complete audit trails
 #[test]
 fn transfer_zero_amount_works() {
     new_test_ext().execute_with(|| {
@@ -768,5 +778,114 @@ fn balance_updates_reflect_immediately() {
         let initial = CladToken::balance_of(&2);
         assert_ok!(CladToken::transfer(RuntimeOrigin::signed(2), 3, 100));
         assert_eq!(CladToken::balance_of(&2), initial - 100);
+    });
+}
+
+// ============================================================================
+// Overflow Protection Tests
+// ============================================================================
+
+/// Tests that mint fails when total supply would overflow.
+/// This is critical for security - prevents infinite token creation.
+#[test]
+fn mint_fails_on_total_supply_overflow() {
+    new_test_ext().execute_with(|| {
+        // First mint a large amount close to u128::MAX
+        // Account 5 starts with 0 balance
+        assert_ok!(CladToken::mint(RuntimeOrigin::signed(1), 5, u128::MAX - 2_000_000));
+
+        // Now try to mint more than remaining capacity
+        // Total supply is now: 1_500_000 (genesis) + (u128::MAX - 2_000_000)
+        // Which is u128::MAX - 500_000
+        // Trying to mint 1_000_000 should overflow
+        assert_noop!(
+            CladToken::mint(RuntimeOrigin::signed(1), 6, 1_000_000),
+            Error::<Test>::Overflow
+        );
+    });
+}
+
+/// Tests that mint fails when recipient balance would overflow.
+/// Even if total supply has room, individual balance overflow must be prevented.
+#[test]
+fn mint_fails_on_balance_overflow() {
+    new_test_ext().execute_with(|| {
+        // Mint max to account 5
+        assert_ok!(CladToken::mint(RuntimeOrigin::signed(1), 5, u128::MAX - 1_500_000));
+
+        // Try to mint 1 more to the same account - balance would overflow
+        assert_noop!(CladToken::mint(RuntimeOrigin::signed(1), 5, 1), Error::<Test>::Overflow);
+    });
+}
+
+/// Tests that transfer fails when receiver balance would overflow.
+///
+/// This is a defensive check that should not happen in practice since:
+/// 1. Total supply is capped and checked on mint
+/// 2. No single account can have more than total supply
+///
+/// We test this by directly setting storage to simulate a theoretical edge case
+/// (e.g., after a future migration or bug).
+#[test]
+fn transfer_fails_on_receiver_balance_overflow() {
+    new_test_ext().execute_with(|| {
+        // Directly set account 10's balance to near u128::MAX to simulate edge case
+        // This bypasses mint's overflow check - simulating a theoretical scenario
+        crate::Balances::<Test>::insert(10, u128::MAX - 100);
+        crate::Whitelist::<Test>::insert(10, true);
+
+        // Account 2 tries to transfer to account 10 - would overflow account 10's balance
+        assert_noop!(
+            CladToken::transfer(RuntimeOrigin::signed(2), 10, 1000),
+            Error::<Test>::Overflow
+        );
+    });
+}
+
+/// Tests that multiple sequential mints to the same account work correctly.
+/// Verifies accumulation behavior over many operations.
+#[test]
+fn multiple_sequential_mints_accumulate_correctly() {
+    new_test_ext().execute_with(|| {
+        let account = 50u64;
+        let mint_amount = 100_000u128;
+        let num_mints = 10;
+
+        for i in 0..num_mints {
+            assert_ok!(CladToken::mint(RuntimeOrigin::signed(1), account, mint_amount));
+            assert_eq!(CladToken::balance_of(&account), mint_amount * (i + 1));
+        }
+
+        // Final balance check
+        assert_eq!(CladToken::balance_of(&account), mint_amount * num_mints);
+
+        // Total supply should include all mints
+        let initial_supply = 1_500_000u128; // From genesis
+        assert_eq!(CladToken::total_supply(), initial_supply + (mint_amount * num_mints));
+    });
+}
+
+// ============================================================================
+// Additional Whitelist Tests
+// ============================================================================
+
+/// Tests that transfer fails when only the receiver is not whitelisted.
+/// Explicitly tests the receiver-side whitelist check.
+#[test]
+fn transfer_fails_when_only_receiver_not_whitelisted() {
+    new_test_ext().execute_with(|| {
+        // Account 2 is whitelisted (from genesis)
+        // Account 99 is NOT whitelisted
+        assert_eq!(CladToken::whitelist(&2), true);
+        assert_eq!(CladToken::whitelist(&99), false);
+
+        // Transfer should fail due to receiver not being whitelisted
+        assert_noop!(
+            CladToken::transfer(RuntimeOrigin::signed(2), 99, 1000),
+            Error::<Test>::NotWhitelisted
+        );
+
+        // Verify sender's balance is unchanged
+        assert_eq!(CladToken::balance_of(&2), 1_000_000);
     });
 }

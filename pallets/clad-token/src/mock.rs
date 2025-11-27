@@ -1,3 +1,37 @@
+//! Mock runtime for pallet-clad-token tests.
+//!
+//! This module provides a minimal mock runtime configuration for testing the
+//! CladToken pallet in isolation. It sets up a test environment with:
+//!
+//! # Test Fixtures
+//!
+//! ## Accounts
+//! - **Account 1**: Admin account with `AdminOrigin` privileges (can mint, freeze, whitelist)
+//! - **Account 2**: Whitelisted user with 1,000,000 tokens initial balance
+//! - **Account 3**: Whitelisted user with 500,000 tokens initial balance
+//! - **Accounts 4+**: Not whitelisted, zero balance (use for testing non-whitelisted scenarios)
+//!
+//! ## Initial State (via `new_test_ext()`)
+//! - Token name: "Test Token"
+//! - Token symbol: "TST"
+//! - Decimals: 6
+//! - Total supply: 1,500,000 (sum of account 2 and 3 balances)
+//! - Whitelisted accounts: 1 (admin), 2, 3
+//! - Frozen accounts: none
+//!
+//! # Example Usage
+//! ```ignore
+//! #[test]
+//! fn my_test() {
+//!     new_test_ext().execute_with(|| {
+//!         // Account 2 has 1_000_000 tokens and is whitelisted
+//!         assert_eq!(CladToken::balance_of(&2), 1_000_000);
+//!         // Account 1 is admin and can mint
+//!         assert_ok!(CladToken::mint(RuntimeOrigin::signed(1), 5, 1000));
+//!     });
+//! }
+//! ```
+
 use crate as pallet_clad_token;
 use frame_support::{
     derive_impl, parameter_types,
@@ -74,7 +108,14 @@ impl pallet_clad_token::Config for Test {
     type WeightInfo = ();
 }
 
-// Build genesis storage according to the mock runtime.
+/// Build genesis storage with standard test fixtures.
+///
+/// Creates a test environment with:
+/// - Admin (account 1) whitelisted
+/// - Accounts 2 and 3 whitelisted with initial balances
+/// - Token metadata: "Test Token" / "TST" / 6 decimals
+///
+/// See module-level documentation for detailed fixture information.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 

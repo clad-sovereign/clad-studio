@@ -102,8 +102,18 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::mint())]
         pub fn mint(origin: OriginFor<T>, to: T::AccountId, amount: u128) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
-            TotalSupply::<T>::mutate(|supply| *supply += amount);
-            Balances::<T>::mutate(to.clone(), |bal| *bal += amount);
+
+            // Check for overflow in total supply
+            let new_supply =
+                TotalSupply::<T>::get().checked_add(amount).ok_or(Error::<T>::Overflow)?;
+
+            // Check for overflow in recipient balance
+            let new_balance =
+                Balances::<T>::get(&to).checked_add(amount).ok_or(Error::<T>::Overflow)?;
+
+            // Apply changes only after all checks pass
+            TotalSupply::<T>::put(new_supply);
+            Balances::<T>::insert(&to, new_balance);
             Self::deposit_event(Event::Minted { to, amount });
             Ok(())
         }
@@ -115,10 +125,23 @@ pub mod pallet {
             ensure!(Whitelist::<T>::get(&sender), Error::<T>::NotWhitelisted);
             ensure!(Whitelist::<T>::get(&to), Error::<T>::NotWhitelisted);
             ensure!(!Frozen::<T>::get(&sender), Error::<T>::AccountFrozen);
-            ensure!(Balances::<T>::get(&sender) >= amount, Error::<T>::InsufficientBalance);
 
-            Balances::<T>::mutate(&sender, |bal| *bal -= amount);
-            Balances::<T>::mutate(to.clone(), |bal| *bal += amount);
+            let sender_balance = Balances::<T>::get(&sender);
+            ensure!(sender_balance >= amount, Error::<T>::InsufficientBalance);
+
+            // Handle self-transfer: no overflow check needed, balance unchanged
+            if sender == to {
+                Self::deposit_event(Event::Transferred { from: sender, to, amount });
+                return Ok(());
+            }
+
+            // Check for overflow in receiver balance (defensive - should not happen with capped supply)
+            let new_receiver_balance =
+                Balances::<T>::get(&to).checked_add(amount).ok_or(Error::<T>::Overflow)?;
+
+            // Apply changes only after all checks pass
+            Balances::<T>::insert(&sender, sender_balance - amount);
+            Balances::<T>::insert(&to, new_receiver_balance);
             Self::deposit_event(Event::Transferred { from: sender, to, amount });
             Ok(())
         }
