@@ -92,3 +92,7 @@ runtime-benchmarks = [
     "pallet-clad-token/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]
+
+[dev-dependencies]
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2509-2" }
+sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2509-2" }
