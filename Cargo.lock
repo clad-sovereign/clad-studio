@@ -1389,6 +1389,7 @@ dependencies = [
  "pallet-balances",
  "pallet-clad-token",
  "pallet-grandpa",
+ "pallet-multisig",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -6313,6 +6314,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-multisig"
+version = "43.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2509-2#7304752b47858f2cd601b35d0eb734ad4ccbbc48"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-session"
 version = "43.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2509-2#7304752b47858f2cd601b35d0eb734ad4ccbbc48"
@@ -7527,7 +7539,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.1",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.1",
  "thiserror 2.0.17",
  "tokio",
  "tracing",
@@ -7564,9 +7576,9 @@ dependencies = [
  "cfg_aliases 0.2.1",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.1",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -8039,7 +8051,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs 0.26.11",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
