@@ -10,10 +10,10 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 frame_benchmarking::define_benchmarks!([pallet_clad_token, CladToken]);
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{ConstU32, Everything, Get},
+    traits::{ConstU32, EitherOfDiverse, Everything, Get},
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureSignedBy};
 pub use pallet_clad_token;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -335,8 +335,54 @@ impl pallet_multisig::Config for Runtime {
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
+// Multi-sig admin account for pallet-clad-token operations.
+//
+// Multi-sig addresses in Substrate are derived as:
+//   blake2_256("modlpy/utilisuba" ++ compact(len) ++ sorted(signatories) ++ threshold_u16_le)
+//
+// Where:
+// - "modlpy/utilisuba" is a fixed prefix
+// - compact(len) is the SCALE-compact encoded number of signatories
+// - sorted(signatories) are the signatory AccountIds sorted lexicographically
+// - threshold_u16_le is the threshold as little-endian u16
+//
+// For development/testing, this is set to a placeholder. In production deployments,
+// replace with the actual multi-sig account derived from ministry officials' keys.
+//
+// See docs/guides/multi-sig-setup.md for derivation instructions.
+//
+// To derive a multi-sig address, use polkadot.js utilities or calculate manually:
+// - polkadot.js: https://polkadot.js.org/docs/util-crypto/examples/create-multisig
+// - subkey inspect: convert SS58 to bytes for runtime configuration
+//
+// TODO: For production, this should be configured via chain spec or genesis config.
+// Currently using Alice's well-known development account as a placeholder.
+frame_support::ord_parameter_types! {
+    pub const CladTokenAdmin: AccountId = AccountId::new([
+        // Development placeholder: Alice's well-known account
+        // In production, replace with actual multi-sig address
+        0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c,
+        0x61, 0x14, 0x1a, 0xbd, 0x04, 0xa9, 0x9f, 0xd6,
+        0x82, 0x2c, 0x85, 0x58, 0x85, 0x4c, 0xcd, 0xe3,
+        0x9a, 0x56, 0x84, 0xe7, 0xa5, 0x6d, 0xa2, 0x7d,
+    ]);
+}
+
+/// Admin origin for pallet-clad-token.
+///
+/// Accepts either:
+/// - Root origin (sudo) - for development and emergency operations
+/// - Signed origin from CladTokenAdmin - for production multi-sig governance
+///
+/// This dual-origin approach allows:
+/// - Developers to test with sudo during development
+/// - Production deployments to use multi-sig without sudo
+/// - Emergency root access if multi-sig is compromised/unavailable
+pub type CladTokenAdminOrigin =
+    EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<CladTokenAdmin, AccountId>>;
+
 impl pallet_clad_token::Config for Runtime {
-    type AdminOrigin = EnsureRoot<AccountId>;
+    type AdminOrigin = CladTokenAdminOrigin;
     type WeightInfo = pallet_clad_token::weights::SubstrateWeight<Runtime>;
 }
 

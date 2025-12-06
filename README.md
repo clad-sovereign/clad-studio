@@ -17,7 +17,7 @@ Primary reference: Paraguay sovereign equity tokenization (2025).
 
 | Component           | Repository | Status | Description |
 |---------------------|------------|--------|-------------|
-| `pallet-clad-token` | [clad-studio](https://github.com/clad-sovereign/clad-studio) | ✅ Production Ready | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Includes benchmarked weights, storage migrations, and comprehensive test coverage. |
+| `pallet-clad-token` | [clad-studio](https://github.com/clad-sovereign/clad-studio) | ✅ Production Ready | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Includes N-of-M multi-sig admin governance, benchmarked weights, storage migrations, and comprehensive test coverage. |
 | `clad-node`         | [clad-studio](https://github.com/clad-sovereign/clad-studio) | ✅ Functional | Substrate node with Aura consensus and Grandpa finality. Enables local multi-validator testnet. |
 | `clad-signer`       | [clad-mobile](https://github.com/clad-sovereign/clad-mobile) | 🚧 In Development | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. |
 
@@ -201,7 +201,7 @@ rm -rf /tmp/clad-*
 
 | Phase                  | Timeline         | Milestones |
 |------------------------|------------------|------------|
-| Phase 1 – Foundation   | Nov 2025 – Feb 2026 | Pallet production hardening (benchmarking, weights, migrations) • Docker containerization • Production mobile signing infrastructure • Polkadot Open Source Grant execution |
+| Phase 1 – Foundation   | Nov 2025 – Feb 2026 | ✅ Pallet production hardening (benchmarking, weights, migrations) • ✅ Multi-sig admin governance • Docker containerization • Production mobile signing infrastructure |
 | Phase 2 – Pilots       | Mar – Jun 2026   | 2–3 sovereign/SOE pilots ($10–100M range) • Full mobile admin dashboard • Security audit |
 | Phase 3 – Deployment   | H2 2026 onward   | White-label deployments • Central-bank oracle integrations • Multi-jurisdiction operations |
 
