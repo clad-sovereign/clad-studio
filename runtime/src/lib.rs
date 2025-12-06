@@ -310,6 +310,31 @@ impl pallet_sudo::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    /// Base deposit for creating a multi-sig operation.
+    /// This is reserved from the account initiating the multi-sig call.
+    pub const DepositBase: Balance = 1_000_000_000_000; // 1 unit (assuming 12 decimals)
+    /// Additional deposit per signatory.
+    /// Total deposit = DepositBase + (DepositFactor * threshold)
+    pub const DepositFactor: Balance = 100_000_000_000; // 0.1 unit per signatory
+    /// Maximum number of signatories allowed in a multi-sig.
+    /// Set to 10 to accommodate ministry committees (typically 3-7 officials).
+    pub const MaxSignatories: u32 = 10;
+}
+
+impl pallet_multisig::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type DepositBase = DepositBase;
+    type DepositFactor = DepositFactor;
+    type MaxSignatories = MaxSignatories;
+    /// Use the System pallet's block number for timepoint tracking.
+    /// This determines when multi-sig operations were created.
+    type BlockNumberProvider = frame_system::Pallet<Runtime>;
+    type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_clad_token::Config for Runtime {
     type AdminOrigin = EnsureRoot<AccountId>;
     type WeightInfo = pallet_clad_token::weights::SubstrateWeight<Runtime>;
@@ -325,6 +350,10 @@ construct_runtime!(
         Balances: pallet_balances,
         TransactionPayment: pallet_transaction_payment,
         Sudo: pallet_sudo,
+        // Multi-signature governance for admin operations.
+        // Enables N-of-M threshold signing for ministry committees.
+        // See ADR-001: docs/adr/001-multi-sig-governance.md
+        Multisig: pallet_multisig,
         CladToken: pallet_clad_token,
     }
 );
