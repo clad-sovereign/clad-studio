@@ -7,9 +7,16 @@
 //! # Test Categories
 //!
 //! 1. **Basic Multi-Sig Flow**: Address derivation, deposit reservation, proposal creation
-//! 2. **Admin Operations via Multi-Sig**: mint, freeze, unfreeze, whitelist operations
+//! 2. **Multi-Sig Approval Flow**: Complete approval flow demonstration
 //! 3. **Edge Cases**: Duplicate approvals, non-signatory rejection, timepoint tracking
-//! 4. **Threshold Variations**: 1-of-1, 2-of-3, 3-of-5 configurations
+//! 4. **Threshold Variations**: 1-of-2, 2-of-3, 3-of-5 configurations
+//! 5. **Integration**: Full ministry workflow simulation
+//!
+//! # Note on Admin Operations
+//!
+//! Admin operations (mint, freeze, whitelist, etc.) are tested in the pallet's unit tests.
+//! These runtime integration tests focus on the multi-sig governance mechanics.
+//! Full multi-sig → admin integration requires a `set_admin` extrinsic (future work).
 
 use crate::*;
 use codec::Encode;
@@ -20,6 +27,9 @@ use sp_runtime::{traits::Hash, BuildStorage};
 
 /// Type alias for call hash used by pallet-multisig
 type CallHash = [u8; 32];
+
+/// Standard test account balance (100 trillion units, enough for deposits and fees)
+const TEST_ACCOUNT_BALANCE: u128 = 100_000_000_000_000;
 
 /// Build test externalities with initial state for multi-sig testing.
 ///
@@ -32,12 +42,12 @@ fn new_test_ext() -> sp_io::TestExternalities {
     // Fund test accounts with enough balance for deposits and fees
     pallet_balances::GenesisConfig::<Runtime> {
         balances: vec![
-            (AccountKeyring::Alice.to_account_id(), 100_000_000_000_000),
-            (AccountKeyring::Bob.to_account_id(), 100_000_000_000_000),
-            (AccountKeyring::Charlie.to_account_id(), 100_000_000_000_000),
-            (AccountKeyring::Dave.to_account_id(), 100_000_000_000_000),
-            (AccountKeyring::Eve.to_account_id(), 100_000_000_000_000),
-            (AccountKeyring::Ferdie.to_account_id(), 100_000_000_000_000),
+            (AccountKeyring::Alice.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Bob.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Charlie.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Dave.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Eve.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Ferdie.to_account_id(), TEST_ACCOUNT_BALANCE),
         ],
         dev_accounts: None,
     }
@@ -96,6 +106,58 @@ fn sorted_other_signatories(all_signatories: &[AccountId], caller: &AccountId) -
     let mut others: Vec<_> = all_signatories.iter().filter(|s| *s != caller).cloned().collect();
     others.sort();
     others
+}
+
+/// Build test externalities with a multi-sig account as CladTokenAdmin.
+///
+/// This simulates the production configuration where a multi-sig committee
+/// controls admin operations. Note: The runtime's CladTokenAdmin is hardcoded,
+/// so this test uses the hardcoded Alice account which happens to match our
+/// runtime configuration. For a true multi-sig admin test, we'd need a
+/// `set_admin` extrinsic (tracked in #38).
+///
+/// For now, this helper exists for future use when admin can be configured (see #38).
+#[allow(dead_code)]
+fn new_test_ext_with_admin(admin: AccountId) -> sp_io::TestExternalities {
+    let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+    pallet_balances::GenesisConfig::<Runtime> {
+        balances: vec![
+            (AccountKeyring::Alice.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Bob.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Charlie.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Dave.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Eve.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (AccountKeyring::Ferdie.to_account_id(), TEST_ACCOUNT_BALANCE),
+            // Also fund the admin account (multi-sig) for any deposits
+            (admin.clone(), TEST_ACCOUNT_BALANCE),
+        ],
+        dev_accounts: None,
+    }
+    .assimilate_storage(&mut t)
+    .unwrap();
+
+    pallet_sudo::GenesisConfig::<Runtime> { key: Some(AccountKeyring::Alice.to_account_id()) }
+        .assimilate_storage(&mut t)
+        .unwrap();
+
+    // Note: pallet-clad-token's admin field in genesis is separate from the runtime's
+    // CladTokenAdmin constant. The genesis admin field whitelists the admin account,
+    // but AdminOrigin check uses the runtime's CladTokenAdmin constant.
+    pallet_clad_token::GenesisConfig::<Runtime> {
+        admin: Some(admin),
+        token_name: b"Test Sovereign Bond".to_vec(),
+        token_symbol: b"TSB".to_vec(),
+        decimals: 6,
+        whitelisted_accounts: vec![],
+        initial_balances: vec![],
+    }
+    .assimilate_storage(&mut t)
+    .unwrap();
+
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
 }
 
 // ============================================================================
@@ -187,185 +249,27 @@ fn multisig_proposal_reserves_deposit() {
 }
 
 // ============================================================================
-// Admin Operations via Multi-Sig Tests
-// ============================================================================
-
-/// Tests mint operation via 2-of-3 multi-sig.
-///
-/// Flow: Alice proposes -> Bob approves -> mint executes
-#[test]
-fn multisig_mint_works() {
-    new_test_ext().execute_with(|| {
-        let alice = AccountKeyring::Alice.to_account_id();
-        let bob = AccountKeyring::Bob.to_account_id();
-        let charlie = AccountKeyring::Charlie.to_account_id();
-        let recipient = AccountKeyring::Ferdie.to_account_id();
-
-        let multisig_account =
-            derive_multisig_account(vec![alice.clone(), bob.clone(), charlie.clone()], 2);
-
-        // First, we need to configure CladTokenAdmin to be this multi-sig account
-        // For this test, we'll use sudo to mint (since AdminOrigin accepts root)
-        // In a real scenario, the multi-sig would be configured as CladTokenAdmin
-
-        // Test via sudo (root origin) to demonstrate the flow works
-        // The multi-sig would call sudo.sudo(clad_token.mint(...))
-
-        let mint_amount = 1_000_000_000_000u128; // 1M tokens with 6 decimals
-
-        // Use sudo to mint (demonstrates admin operation)
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(AccountKeyring::Alice.to_account_id()),
-            Box::new(
-                pallet_clad_token::Call::mint { to: recipient.clone(), amount: mint_amount }.into()
-            ),
-        ));
-
-        // Verify mint succeeded
-        assert_eq!(CladToken::balance_of(&recipient), mint_amount);
-        assert_eq!(CladToken::total_supply(), mint_amount);
-
-        // Log the multi-sig account for documentation
-        println!("Multi-sig account (2-of-3): {multisig_account:?}");
-    });
-}
-
-/// Tests freeze operation via multi-sig approval flow.
-#[test]
-fn multisig_freeze_works() {
-    new_test_ext().execute_with(|| {
-        let alice = AccountKeyring::Alice.to_account_id();
-        let target_account = AccountKeyring::Ferdie.to_account_id();
-
-        // First whitelist and give tokens to target
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(
-                pallet_clad_token::Call::add_to_whitelist { account: target_account.clone() }
-                    .into()
-            ),
-        ));
-
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(
-                pallet_clad_token::Call::mint { to: target_account.clone(), amount: 1_000_000 }
-                    .into()
-            ),
-        ));
-
-        // Verify not frozen initially
-        assert!(!CladToken::is_frozen(&target_account));
-
-        // Freeze via sudo (simulating multi-sig admin)
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(pallet_clad_token::Call::freeze { account: target_account.clone() }.into()),
-        ));
-
-        // Verify frozen
-        assert!(CladToken::is_frozen(&target_account));
-    });
-}
-
-/// Tests unfreeze operation via multi-sig.
-#[test]
-fn multisig_unfreeze_works() {
-    new_test_ext().execute_with(|| {
-        let alice = AccountKeyring::Alice.to_account_id();
-        let target_account = AccountKeyring::Ferdie.to_account_id();
-
-        // Setup: whitelist, mint, and freeze
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(
-                pallet_clad_token::Call::add_to_whitelist { account: target_account.clone() }
-                    .into()
-            ),
-        ));
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(pallet_clad_token::Call::freeze { account: target_account.clone() }.into()),
-        ));
-        assert!(CladToken::is_frozen(&target_account));
-
-        // Unfreeze
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(pallet_clad_token::Call::unfreeze { account: target_account.clone() }.into()),
-        ));
-
-        // Verify unfrozen
-        assert!(!CladToken::is_frozen(&target_account));
-    });
-}
-
-/// Tests add_to_whitelist operation via multi-sig.
-#[test]
-fn multisig_whitelist_works() {
-    new_test_ext().execute_with(|| {
-        let alice = AccountKeyring::Alice.to_account_id();
-        let target_account = AccountKeyring::Ferdie.to_account_id();
-
-        // Verify not whitelisted initially
-        assert!(!CladToken::whitelist(&target_account));
-
-        // Whitelist via admin
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(
-                pallet_clad_token::Call::add_to_whitelist { account: target_account.clone() }
-                    .into()
-            ),
-        ));
-
-        // Verify whitelisted
-        assert!(CladToken::whitelist(&target_account));
-    });
-}
-
-/// Tests remove_from_whitelist operation via multi-sig.
-#[test]
-fn multisig_remove_from_whitelist_works() {
-    new_test_ext().execute_with(|| {
-        let alice = AccountKeyring::Alice.to_account_id();
-        let target_account = AccountKeyring::Ferdie.to_account_id();
-
-        // Setup: whitelist first
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(
-                pallet_clad_token::Call::add_to_whitelist { account: target_account.clone() }
-                    .into()
-            ),
-        ));
-        assert!(CladToken::whitelist(&target_account));
-
-        // Remove from whitelist
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(alice.clone()),
-            Box::new(
-                pallet_clad_token::Call::remove_from_whitelist { account: target_account.clone() }
-                    .into()
-            ),
-        ));
-
-        // Verify removed
-        assert!(!CladToken::whitelist(&target_account));
-    });
-}
-
-// ============================================================================
 // Multi-Sig Approval Flow Tests
 // ============================================================================
+//
+// These tests verify the multi-sig approval mechanics work correctly.
+// In production, the multi-sig account would be configured as CladTokenAdmin
+// to enable governance-controlled admin operations.
+//
+// Note: Full multi-sig → admin integration testing requires a `set_admin`
+// extrinsic to configure the multi-sig as admin at runtime (see #38).
+// For now, these tests verify the multi-sig mechanics work correctly.
 
 /// Tests complete 2-of-3 multi-sig approval flow.
 ///
-/// This demonstrates the full multi-sig flow:
-/// 1. Alice proposes (threshold not met)
-/// 2. Bob approves (threshold met, call executes)
+/// Demonstrates the full multi-sig flow:
+/// 1. Alice proposes (threshold not met, call stored)
+/// 2. Bob approves (threshold met, call executes as multi-sig account)
+///
+/// In production, the inner call would be `clad_token::mint(...)` and the
+/// multi-sig account would be configured as CladTokenAdmin.
 #[test]
-fn complete_2of3_multisig_approval_flow() {
+fn multisig_2of3_approval_executes_call() {
     new_test_ext().execute_with(|| {
         let alice = AccountKeyring::Alice.to_account_id();
         let bob = AccountKeyring::Bob.to_account_id();
@@ -504,6 +408,58 @@ fn wrong_timepoint_rejected() {
                 Weight::zero(),
             ),
             pallet_multisig::Error::<Runtime>::WrongTimepoint
+        );
+    });
+}
+
+/// Tests that a non-signatory cannot approve a multi-sig proposal.
+///
+/// When a non-signatory tries to approve, they cannot produce the correct
+/// multi-sig account address (since address = hash(signatories, threshold)).
+/// The result is `UnexpectedTimepoint` because no proposal exists at the
+/// (incorrect) multi-sig address they derive.
+#[test]
+fn non_signatory_cannot_approve() {
+    new_test_ext().execute_with(|| {
+        let alice = AccountKeyring::Alice.to_account_id();
+        let bob = AccountKeyring::Bob.to_account_id();
+        let charlie = AccountKeyring::Charlie.to_account_id();
+        let outsider = AccountKeyring::Ferdie.to_account_id(); // Not a signatory
+
+        let signatories = vec![alice.clone(), bob.clone(), charlie.clone()];
+        let multisig_account = derive_multisig_account(signatories.clone(), 2);
+
+        let call: RuntimeCall = frame_system::Call::remark { remark: vec![1, 2, 3] }.into();
+        let call_hash: CallHash = BlakeTwo256::hash_of(&call).into();
+
+        // Alice proposes
+        assert_ok!(Multisig::as_multi(
+            RuntimeOrigin::signed(alice.clone()),
+            2,
+            sorted_other_signatories(&signatories, &alice),
+            None,
+            Box::new(call.clone()),
+            Weight::zero(),
+        ));
+
+        let timepoint = pallet_multisig::Multisigs::<Runtime>::get(&multisig_account, call_hash)
+            .expect("Multisig should exist")
+            .when;
+
+        // Ferdie (outsider) tries to approve - should fail
+        // Since Ferdie isn't in the original signatories, sorted_other_signatories returns
+        // all 3 original signatories. This produces a different multi-sig address
+        // (hash includes Ferdie + all 3 = 4 accounts), so no proposal exists there.
+        assert_noop!(
+            Multisig::as_multi(
+                RuntimeOrigin::signed(outsider.clone()),
+                2,
+                sorted_other_signatories(&signatories, &outsider), // Returns all 3 since outsider isn't in list
+                Some(timepoint),
+                Box::new(call),
+                Weight::zero(),
+            ),
+            pallet_multisig::Error::<Runtime>::UnexpectedTimepoint
         );
     });
 }
@@ -659,17 +615,28 @@ fn threshold_3of5_larger_committee() {
 }
 
 // ============================================================================
-// Integration Tests - Full Admin Workflow
+// Integration Tests - Full Workflow Simulation
 // ============================================================================
+//
+// These tests demonstrate complete workflows. Admin operations use sudo (root)
+// as a stand-in for multi-sig governance since the runtime's CladTokenAdmin
+// is currently hardcoded. In production, these would go through multi-sig.
 
 /// Tests a complete ministry workflow: whitelist -> mint -> transfer -> freeze.
 ///
-/// Simulates a real-world bond issuance scenario where admin operations
-/// are performed via multi-sig governance.
+/// Simulates a real-world bond issuance scenario:
+/// 1. Admin whitelists treasury and investor accounts
+/// 2. Admin mints bond tokens to treasury
+/// 3. Treasury distributes tokens to investor
+/// 4. Compliance issue triggers freeze
+/// 5. Issue resolved, investor unfrozen
+///
+/// Note: Uses sudo as stand-in for multi-sig admin. In production, admin ops
+/// would require multi-sig approval (see `set_admin` extrinsic in future work).
 #[test]
 fn integration_full_ministry_workflow() {
     new_test_ext().execute_with(|| {
-        let admin = AccountKeyring::Alice.to_account_id();
+        let admin = AccountKeyring::Alice.to_account_id(); // Sudo key in test
         let treasury = AccountKeyring::Bob.to_account_id();
         let investor = AccountKeyring::Charlie.to_account_id();
 
@@ -746,23 +713,5 @@ fn integration_full_ministry_workflow() {
 
         // Total supply unchanged throughout
         assert_eq!(CladToken::total_supply(), bond_amount);
-    });
-}
-
-/// Tests that the configured CladTokenAdmin (Alice's account in dev mode) works.
-#[test]
-fn configured_admin_account_works() {
-    new_test_ext().execute_with(|| {
-        // In the runtime, CladTokenAdmin is set to Alice's well-known account
-        // The EitherOfDiverse origin accepts either root OR signed by CladTokenAdmin
-
-        // Test via sudo (root origin)
-        let admin = AccountKeyring::Alice.to_account_id();
-        let target = AccountKeyring::Ferdie.to_account_id();
-
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(admin),
-            Box::new(pallet_clad_token::Call::add_to_whitelist { account: target }.into()),
-        ));
     });
 }
