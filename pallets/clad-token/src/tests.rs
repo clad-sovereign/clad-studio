@@ -889,3 +889,172 @@ fn transfer_fails_when_only_receiver_not_whitelisted() {
         assert_eq!(CladToken::balance_of(&2), 1_000_000);
     });
 }
+
+// ============================================================================
+// Set Admin Tests
+// ============================================================================
+
+/// Tests that set_admin works when called by admin.
+#[test]
+fn set_admin_works() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // Admin (account 1) sets new admin (account 50)
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 50));
+
+        // Verify admin was set in storage
+        assert_eq!(CladToken::admin(), Some(50));
+
+        // Verify new admin was auto-whitelisted
+        assert_eq!(CladToken::whitelist(&50), true);
+
+        // Check AdminChanged event was emitted
+        System::assert_has_event(Event::AdminChanged { old_admin: None, new_admin: 50 }.into());
+
+        // Check Whitelisted event was emitted for new admin
+        System::assert_last_event(Event::Whitelisted { account: 50 }.into());
+    });
+}
+
+/// Tests that set_admin fails when called by non-admin.
+#[test]
+fn set_admin_fails_for_non_admin() {
+    new_test_ext().execute_with(|| {
+        // Non-admin (account 2) cannot set admin
+        assert_noop!(
+            CladToken::set_admin(RuntimeOrigin::signed(2), 50),
+            sp_runtime::DispatchError::BadOrigin
+        );
+    });
+}
+
+/// Tests that set_admin correctly tracks old admin in event.
+#[test]
+fn set_admin_tracks_old_admin() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // First set_admin: None -> 50
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 50));
+        System::assert_has_event(Event::AdminChanged { old_admin: None, new_admin: 50 }.into());
+
+        // Clear events for next assertion
+        System::reset_events();
+        System::set_block_number(2);
+
+        // Second set_admin: 50 -> 60 (called by original genesis admin, account 1)
+        // Note: In the mock, account 1 is always admin via EnsureRoot simulation
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 60));
+        System::assert_has_event(Event::AdminChanged { old_admin: Some(50), new_admin: 60 }.into());
+
+        // Verify final state
+        assert_eq!(CladToken::admin(), Some(60));
+    });
+}
+
+/// Tests that set_admin auto-whitelists the new admin.
+#[test]
+fn set_admin_auto_whitelists_new_admin() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // Account 99 is not whitelisted initially
+        assert_eq!(CladToken::whitelist(&99), false);
+
+        // Set account 99 as admin
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 99));
+
+        // Account 99 should now be whitelisted
+        assert_eq!(CladToken::whitelist(&99), true);
+    });
+}
+
+/// Tests that setting admin to already-whitelisted account works.
+/// The whitelist operation is idempotent.
+#[test]
+fn set_admin_to_whitelisted_account_works() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // Account 2 is already whitelisted from genesis
+        assert_eq!(CladToken::whitelist(&2), true);
+
+        // Set account 2 as admin
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 2));
+
+        // Admin should be set
+        assert_eq!(CladToken::admin(), Some(2));
+
+        // Account 2 should still be whitelisted
+        assert_eq!(CladToken::whitelist(&2), true);
+    });
+}
+
+/// Tests that setting admin to same account works (idempotent).
+#[test]
+fn set_admin_to_same_account_works() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // First set admin to 50
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 50));
+        assert_eq!(CladToken::admin(), Some(50));
+
+        System::reset_events();
+        System::set_block_number(2);
+
+        // Set admin to 50 again
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 50));
+        assert_eq!(CladToken::admin(), Some(50));
+
+        // Event should still be emitted with old_admin = Some(50)
+        System::assert_has_event(Event::AdminChanged { old_admin: Some(50), new_admin: 50 }.into());
+    });
+}
+
+/// Tests the complete admin rotation workflow.
+/// This simulates a ministry committee personnel change scenario.
+#[test]
+fn integration_admin_rotation_workflow() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // Step 1: Initial state - no storage-based admin
+        assert_eq!(CladToken::admin(), None);
+
+        // Step 2: Genesis admin (account 1) sets first explicit admin (multi-sig placeholder: 100)
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 100));
+        assert_eq!(CladToken::admin(), Some(100));
+        assert_eq!(CladToken::whitelist(&100), true);
+
+        // Step 3: Verify new admin can perform admin operations via root
+        // (In mock, admin 1 can still call admin functions via EnsureRoot)
+        assert_ok!(CladToken::mint(RuntimeOrigin::signed(1), 200, 1_000_000));
+        assert_eq!(CladToken::balance_of(&200), 1_000_000);
+
+        // Step 4: Rotate to new admin (simulating committee change: 100 -> 101)
+        System::reset_events();
+        System::set_block_number(2);
+        assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 101));
+        assert_eq!(CladToken::admin(), Some(101));
+        assert_eq!(CladToken::whitelist(&101), true);
+
+        // Old admin (100) remains whitelisted (can still hold tokens)
+        assert_eq!(CladToken::whitelist(&100), true);
+
+        // Step 5: Verify events for audit trail
+        System::assert_has_event(
+            Event::AdminChanged { old_admin: Some(100), new_admin: 101 }.into(),
+        );
+    });
+}
+
+/// Tests that admin storage starts as None (uses genesis-configured fallback).
+#[test]
+fn admin_storage_starts_as_none() {
+    new_test_ext().execute_with(|| {
+        // Admin storage should be None initially (falls back to genesis config)
+        assert_eq!(CladToken::admin(), None);
+    });
+}

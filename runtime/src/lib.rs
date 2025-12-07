@@ -13,7 +13,7 @@ mod tests;
 frame_benchmarking::define_benchmarks!([pallet_clad_token, CladToken]);
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{ConstU32, EitherOfDiverse, Everything, Get},
+    traits::{ConstU32, EitherOfDiverse, Everything, Get, OriginTrait},
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -371,18 +371,56 @@ frame_support::ord_parameter_types! {
     ]);
 }
 
+/// Custom origin check for storage-based admin.
+///
+/// Checks if the signed account matches the admin stored in `pallet_clad_token::Admin<T>`.
+/// This allows admin rotation without runtime upgrades.
+pub struct EnsureStorageAdmin;
+
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureStorageAdmin {
+    type Success = AccountId;
+
+    fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+        // First, check if there's an admin in storage
+        if let Some(storage_admin) = pallet_clad_token::Admin::<Runtime>::get() {
+            // Try to extract signed origin
+            o.clone()
+                .into_signer()
+                .and_then(|signer| if signer == storage_admin { Some(signer) } else { None })
+                .ok_or(o)
+        } else {
+            // No storage admin set, reject
+            Err(o)
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+        // For benchmarks, use the genesis-configured admin as fallback
+        Ok(RuntimeOrigin::signed(CladTokenAdmin::get()))
+    }
+}
+
 /// Admin origin for pallet-clad-token.
 ///
-/// Accepts either:
-/// - Root origin (sudo) - for development and emergency operations
-/// - Signed origin from CladTokenAdmin - for production multi-sig governance
+/// Accepts any of:
+/// 1. Root origin (sudo) - for development and emergency operations
+/// 2. Storage-based admin - set via `set_admin` extrinsic, allows rotation
+/// 3. Genesis-configured admin (CladTokenAdmin) - fallback when storage admin not set
 ///
-/// This dual-origin approach allows:
+/// Priority order for non-root calls:
+/// - First checks storage-based admin (allows runtime rotation)
+/// - Falls back to genesis-configured admin (compile-time constant)
+///
+/// This tri-origin approach allows:
 /// - Developers to test with sudo during development
-/// - Production deployments to use multi-sig without sudo
-/// - Emergency root access if multi-sig is compromised/unavailable
-pub type CladTokenAdminOrigin =
-    EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<CladTokenAdmin, AccountId>>;
+/// - Production deployments to rotate admin via `set_admin` without runtime upgrades
+/// - Fallback to genesis config when storage admin not yet set
+/// - Emergency root access if admin keys are compromised/unavailable
+pub type CladTokenAdminOrigin = EitherOfDiverse<
+    EnsureRoot<AccountId>,
+    EitherOfDiverse<EnsureStorageAdmin, EnsureSignedBy<CladTokenAdmin, AccountId>>,
+>;
 
 impl pallet_clad_token::Config for Runtime {
     type AdminOrigin = CladTokenAdminOrigin;

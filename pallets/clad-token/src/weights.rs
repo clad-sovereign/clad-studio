@@ -40,6 +40,7 @@ pub trait WeightInfo {
 	fn unfreeze() -> Weight;
 	fn add_to_whitelist() -> Weight;
 	fn remove_from_whitelist() -> Weight;
+	fn set_admin() -> Weight;
 }
 
 /// Weights for `pallet_clad_token` using the Substrate node and recommended hardware.
@@ -113,6 +114,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(5_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `CladToken::Admin` (r:1 w:1)
+	/// Proof: `CladToken::Admin` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `CladToken::Whitelist` (r:0 w:1)
+	/// Proof: `CladToken::Whitelist` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	fn set_admin() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1517`
+		// Minimum execution time: 5_000_000 picoseconds.
+		Weight::from_parts(6_000_000, 1517)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -184,5 +198,18 @@ impl WeightInfo for () {
 		// Minimum execution time: 4_000_000 picoseconds.
 		Weight::from_parts(5_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `CladToken::Admin` (r:1 w:1)
+	/// Proof: `CladToken::Admin` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `CladToken::Whitelist` (r:0 w:1)
+	/// Proof: `CladToken::Whitelist` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	fn set_admin() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1517`
+		// Minimum execution time: 5_000_000 picoseconds.
+		Weight::from_parts(6_000_000, 1517)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }
