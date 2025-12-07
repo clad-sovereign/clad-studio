@@ -6,7 +6,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI](https://github.com/clad-sovereign/clad-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/clad-sovereign/clad-studio/actions)
 
-**Substrate pallet for sovereign bond tokenization**  
+**Sovereign bond tokenization infrastructure for Polkadot**  
 Polkadot / Substrate • Rust • Compliance-first • Mobile-native • Geopolitically neutral
 
 Designed for finance ministries, debt-management offices, and state-owned enterprises issuing compliant tokenized debt or equity on fully controllable infrastructure.
@@ -31,8 +31,6 @@ Emerging-market sovereigns and state-owned enterprises in:
 **Focus:** Finance ministries, debt-management offices, and central banks requiring compliant tokenization infrastructure for sovereign bonds and equity issuance.
 
 **Pilot timeline:** H1-H2 2026
-
-**Public reference:** Paraguay sovereign equity tokenization (announced Q3 2025)
 
 ## Strategic positioning
 
@@ -201,7 +199,7 @@ rm -rf /tmp/clad-*
 
 | Phase                  | Timeline         | Milestones |
 |------------------------|------------------|------------|
-| Phase 1 – Foundation   | Nov 2025 – Feb 2026 | ✅ Pallet production hardening (benchmarking, weights, migrations) • ✅ Multi-sig admin governance • Docker containerization • Production mobile signing infrastructure |
+| Phase 1 – Foundation   | Nov 2025 – Feb 2026 | ✅ Pallet production hardening (benchmarking, weights, migrations) • ✅ Multi-sig admin governance • 🚧 Docker containerization • 🚧 Production mobile signing infrastructure |
 | Phase 2 – Pilots       | Mar – Jun 2026   | 2–3 sovereign/SOE pilots ($10–100M range) • Full mobile admin dashboard • Security audit |
 | Phase 3 – Deployment   | H2 2026 onward   | White-label deployments • Central-bank oracle integrations • Multi-jurisdiction operations |
 
