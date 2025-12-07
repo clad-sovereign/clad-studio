@@ -6,7 +6,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI](https://github.com/clad-sovereign/clad-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/clad-sovereign/clad-studio/actions)
 
-**Open-source tokenization toolkit for sovereign and emerging-market real-world assets**  
+**Substrate pallet for sovereign bond tokenization**  
 Polkadot / Substrate • Rust • Compliance-first • Mobile-native • Geopolitically neutral
 
 Designed for finance ministries, debt-management offices, and state-owned enterprises issuing compliant tokenized debt or equity on fully controllable infrastructure.
@@ -19,7 +19,7 @@ Primary reference: Paraguay sovereign equity tokenization (2025).
 |---------------------|------------|--------|-------------|
 | `pallet-clad-token` | [clad-studio](https://github.com/clad-sovereign/clad-studio) | ✅ Production Ready | FRAME pallet with roles, freeze/unfreeze, whitelist, ERC-3643-compatible hooks. Includes N-of-M multi-sig admin governance, benchmarked weights, storage migrations, and comprehensive test coverage. |
 | `clad-node`         | [clad-studio](https://github.com/clad-sovereign/clad-studio) | ✅ Functional | Substrate node with Aura consensus and Grandpa finality. Enables local multi-validator testnet. |
-| `clad-signer`       | [clad-mobile](https://github.com/clad-sovereign/clad-mobile) | 🚧 In Development | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. |
+| `clad-signer`       | (private) | 🚧 In Development | Kotlin Multiplatform native signer (iOS/Android) with biometric authentication and offline QR signing. |
 
 ## Target Markets
 
