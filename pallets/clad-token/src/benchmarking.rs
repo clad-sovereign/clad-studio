@@ -86,5 +86,19 @@ mod benchmarks {
         assert_eq!(Whitelist::<T>::get(&account), false);
     }
 
+    #[benchmark]
+    fn set_admin() {
+        let new_admin: T::AccountId = account("new_admin", 0, 0);
+        let origin = T::AdminOrigin::try_successful_origin().expect("Admin origin");
+
+        #[extrinsic_call]
+        _(origin as T::RuntimeOrigin, new_admin.clone());
+
+        // Verify admin was set in storage
+        assert_eq!(Admin::<T>::get(), Some(new_admin.clone()));
+        // Verify new admin was auto-whitelisted
+        assert_eq!(Whitelist::<T>::get(&new_admin), true);
+    }
+
     impl_benchmark_test_suite!(CladToken, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -78,6 +78,7 @@
 //! | `Balances` | `Map<AccountId, u128>` | Per-account token balances |
 //! | `Frozen` | `Map<AccountId, bool>` | Frozen account flags |
 //! | `Whitelist` | `Map<AccountId, bool>` | KYC-approved account flags |
+//! | `Admin` | `Option<AccountId>` | Storage-based admin (enables rotation) |
 //!
 //! ## Dispatchable Functions
 //!
@@ -89,6 +90,7 @@
 //! | [`unfreeze`](pallet::Pallet::unfreeze) | Admin | Unfreeze an account |
 //! | [`add_to_whitelist`](pallet::Pallet::add_to_whitelist) | Admin | Approve account for transfers |
 //! | [`remove_from_whitelist`](pallet::Pallet::remove_from_whitelist) | Admin | Revoke transfer approval |
+//! | [`set_admin`](pallet::Pallet::set_admin) | Admin | Rotate admin to new account |
 //!
 //! ## License
 //!
@@ -446,6 +448,52 @@ pub mod pallet {
     #[pallet::getter(fn is_frozen)]
     pub type Frozen<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STORAGE ITEMS - Admin Configuration
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// The current admin account for privileged operations.
+    ///
+    /// This storage item allows runtime admin rotation without requiring a full
+    /// runtime upgrade. When set, this account (typically a multi-sig address)
+    /// can perform admin operations like minting, freezing, and whitelisting.
+    ///
+    /// # Admin Resolution Order
+    ///
+    /// The runtime's `AdminOrigin` checks in this order:
+    /// 1. Root origin (always accepted for emergency recovery)
+    /// 2. Storage-based admin (this value, if set)
+    /// 3. Genesis-configured fallback (compile-time constant)
+    ///
+    /// # Use Cases
+    ///
+    /// | Scenario | Action |
+    /// |----------|--------|
+    /// | Personnel change | Rotate to new multi-sig with updated committee |
+    /// | Threshold change | Create new 3-of-5 multi-sig, rotate from 2-of-3 |
+    /// | Emergency recovery | Root can set new admin if multi-sig compromised |
+    ///
+    /// # Storage
+    ///
+    /// - **Type**: `StorageValue<AccountId>` (optional)
+    /// - **Default**: `None` (falls back to genesis-configured admin)
+    /// - **Mutability**: Modified by [`set_admin`](Pallet::set_admin)
+    ///
+    /// # Querying
+    ///
+    /// ```ignore
+    /// // Via RPC (JavaScript)
+    /// const admin = await api.query.cladToken.admin();
+    /// if (admin.isSome) {
+    ///     console.log('Current admin:', admin.unwrap().toHuman());
+    /// } else {
+    ///     console.log('Using genesis-configured admin');
+    /// }
+    /// ```
+    #[pallet::storage]
+    #[pallet::getter(fn admin)]
+    pub type Admin<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
     /// Accounts approved to participate in token transfers.
     ///
     /// The whitelist implements the KYC (Know Your Customer) requirement of ERC-3643.
@@ -676,6 +724,45 @@ pub mod pallet {
         RemovedFromWhitelist {
             /// Account that was removed from the whitelist.
             account: T::AccountId,
+        },
+
+        /// The admin account was changed.
+        ///
+        /// This event is emitted by [`Pallet::set_admin`] when the admin rotates
+        /// privileges to a new account (typically a new multi-sig address).
+        ///
+        /// # Fields
+        ///
+        /// - `old_admin`: The previous admin account (None if first time setting)
+        /// - `new_admin`: The new admin account
+        ///
+        /// # Audit Significance
+        ///
+        /// Admin changes are critical governance events. Off-chain systems should:
+        /// - Alert compliance officers immediately
+        /// - Log the change with timestamp for audit trail
+        /// - Verify the new admin matches expected multi-sig address
+        ///
+        /// # Example Event Data
+        ///
+        /// ```ignore
+        /// // Multi-sig rotation (personnel change)
+        /// AdminChanged {
+        ///     old_admin: Some("5MultiSigOld..."),
+        ///     new_admin: "5MultiSigNew..."
+        /// }
+        ///
+        /// // First-time admin setup (genesis fallback → explicit admin)
+        /// AdminChanged {
+        ///     old_admin: None,
+        ///     new_admin: "5MultiSig..."
+        /// }
+        /// ```
+        AdminChanged {
+            /// The previous admin account, if any.
+            old_admin: Option<T::AccountId>,
+            /// The new admin account.
+            new_admin: T::AccountId,
         },
     }
 
@@ -1175,6 +1262,96 @@ pub mod pallet {
             T::AdminOrigin::ensure_origin(origin)?;
             Whitelist::<T>::remove(&account);
             Self::deposit_event(Event::RemovedFromWhitelist { account });
+            Ok(())
+        }
+
+        /// Transfer admin privileges to a new account.
+        ///
+        /// Sets a new admin account in storage, allowing admin rotation without
+        /// a runtime upgrade. This is essential for production deployments where
+        /// ministry committees have personnel changes.
+        ///
+        /// # Permissions
+        ///
+        /// **Admin only** - Requires [`Config::AdminOrigin`].
+        ///
+        /// In practice, this means:
+        /// - Root origin can always set a new admin (emergency recovery)
+        /// - The current multi-sig admin can rotate to a new multi-sig
+        ///
+        /// # Parameters
+        ///
+        /// | Parameter | Type | Description |
+        /// |-----------|------|-------------|
+        /// | `origin` | `OriginFor<T>` | Must satisfy `AdminOrigin` |
+        /// | `new_admin` | `T::AccountId` | Account to become the new admin |
+        ///
+        /// # Events
+        ///
+        /// - [`Event::AdminChanged`] on success
+        /// - [`Event::Whitelisted`] for the new admin (auto-whitelisted)
+        ///
+        /// # Errors
+        ///
+        /// - `BadOrigin` if caller is not current admin or root
+        ///
+        /// # Use Cases
+        ///
+        /// 1. **Personnel change**: Ministry official retires, committee rotates keys
+        /// 2. **Threshold change**: Upgrade from 2-of-3 to 3-of-5 multi-sig
+        /// 3. **Emergency recovery**: Root sets new admin after key compromise
+        /// 4. **Initial setup**: Set explicit admin after genesis (from None)
+        ///
+        /// # Workflow Example
+        ///
+        /// ```text
+        /// // Current admin: 2-of-3 multi-sig (Alice, Bob, Charlie)
+        /// // New admin: 3-of-5 multi-sig (Alice, Bob, Charlie, Dave, Eve)
+        ///
+        /// 1. Create new 3-of-5 multi-sig address off-chain
+        /// 2. Current 2-of-3 multi-sig approves set_admin(new_multisig)
+        /// 3. AdminChanged event emitted
+        /// 4. New multi-sig is auto-whitelisted
+        /// 5. Old multi-sig remains whitelisted (can still receive tokens)
+        /// ```
+        ///
+        /// # Example
+        ///
+        /// ```ignore
+        /// // Rotate to new multi-sig address
+        /// CladToken::set_admin(
+        ///     RuntimeOrigin::signed(current_multisig),  // Via multi-sig approval
+        ///     new_multisig_account
+        /// )?;
+        /// ```
+        ///
+        /// # Security Considerations
+        ///
+        /// - The new admin is automatically whitelisted to ensure it can receive
+        ///   tokens if needed (e.g., treasury operations)
+        /// - The old admin is NOT automatically removed from whitelist—this
+        ///   preserves their ability to hold tokens they may already have
+        /// - Consider implementing a timelock for admin changes in high-security
+        ///   deployments (future enhancement)
+        /// - Root origin should be protected by sudo or similar mechanism
+        #[pallet::call_index(6)]
+        #[pallet::weight(T::WeightInfo::set_admin())]
+        pub fn set_admin(origin: OriginFor<T>, new_admin: T::AccountId) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            // Get current admin for event
+            let old_admin = Admin::<T>::get();
+
+            // Set new admin in storage
+            Admin::<T>::put(&new_admin);
+
+            // Auto-whitelist new admin so they can receive tokens if needed
+            Whitelist::<T>::insert(&new_admin, true);
+
+            // Emit events
+            Self::deposit_event(Event::AdminChanged { old_admin, new_admin: new_admin.clone() });
+            Self::deposit_event(Event::Whitelisted { account: new_admin });
+
             Ok(())
         }
     }
