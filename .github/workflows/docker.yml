@@ -131,7 +131,8 @@ jobs:
           echo "Testing image: $IMAGE_TAG"
 
           # Run without --rm so we can inspect logs if it crashes
-          docker run -d --name clad-test -p 9933:9933 \
+          # Port 9944 is the JSON-RPC port (WebSocket + HTTP on same port in modern Substrate)
+          docker run -d --name clad-test -p 9944:9944 \
             "$IMAGE_TAG" \
             --dev --rpc-external --rpc-cors all
 
@@ -150,7 +151,8 @@ jobs:
           sleep 20
 
           echo "Testing health endpoint..."
-          if ! curl -f http://localhost:9933/health; then
+          # Modern Substrate serves HTTP and WS on the same port (9944)
+          if ! curl -f http://localhost:9944/health; then
             echo "Health check failed. Container logs:"
             docker logs clad-test
             docker stop clad-test || true

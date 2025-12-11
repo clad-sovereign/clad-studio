@@ -50,8 +50,9 @@ EXPOSE 9944 9933 30333 9615
 WORKDIR /clad-node
 
 # Health check - verify node responds to RPC
+# Modern Substrate serves HTTP and WS on the same port (9944)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:9933/health || exit 1
+    CMD curl -f http://localhost:9944/health || exit 1
 
 # Default entrypoint
 ENTRYPOINT ["/usr/local/bin/clad-node"]
