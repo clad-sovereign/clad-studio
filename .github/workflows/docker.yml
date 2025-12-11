@@ -130,18 +130,37 @@ jobs:
           IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
           echo "Testing image: $IMAGE_TAG"
 
-          docker run --rm -d --name clad-test -p 9933:9933 \
+          # Run without --rm so we can inspect logs if it crashes
+          docker run -d --name clad-test -p 9933:9933 \
             "$IMAGE_TAG" \
             --dev --rpc-external --rpc-cors all
 
           echo "Waiting for node to start..."
-          sleep 30
+          sleep 10
+
+          # Check if container is still running
+          if ! docker ps | grep -q clad-test; then
+            echo "Container exited unexpectedly. Logs:"
+            docker logs clad-test
+            docker rm clad-test
+            exit 1
+          fi
+
+          # Wait more for node initialization
+          sleep 20
 
           echo "Testing health endpoint..."
-          curl -f http://localhost:9933/health || (docker logs clad-test && exit 1)
+          if ! curl -f http://localhost:9933/health; then
+            echo "Health check failed. Container logs:"
+            docker logs clad-test
+            docker stop clad-test || true
+            docker rm clad-test || true
+            exit 1
+          fi
 
           echo "Node started successfully!"
           docker stop clad-test
+          docker rm clad-test
 
   test-compose:
     name: Test Docker Compose
