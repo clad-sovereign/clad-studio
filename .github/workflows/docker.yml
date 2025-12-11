@@ -122,11 +122,16 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          load: true
 
       - name: Test container starts
         run: |
+          # Use the first tag from metadata (works for both PR and push)
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "Testing image: $IMAGE_TAG"
+
           docker run --rm -d --name clad-test -p 9933:9933 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            "$IMAGE_TAG" \
             --dev --rpc-external --rpc-cors all
 
           echo "Waiting for node to start..."
