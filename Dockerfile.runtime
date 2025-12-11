@@ -26,7 +26,8 @@ RUN apt-get update && \
     apt-get clean
 
 # Create a non-root user for security
-RUN useradd -m -u 1000 -U -s /bin/sh -d /clad-node clad && \
+# Use UID 1001 to avoid conflict with ubuntu user (UID 1000) in Ubuntu 24.04
+RUN useradd -m -u 1001 -U -s /bin/sh -d /clad-node clad && \
     mkdir -p /clad-node/.local/share && \
     chown -R clad:clad /clad-node
 
