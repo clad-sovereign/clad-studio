@@ -1,0 +1,60 @@
+# Minimal runtime Dockerfile for Clad Studio node
+# This image packages a pre-built binary - it does NOT compile from source.
+# The binary is built in CI and copied into this image.
+#
+# Usage:
+#   # Build (requires pre-built binary in current directory)
+#   podman build -f Dockerfile.runtime -t clad-node:latest .
+#
+#   # Run
+#   podman run -p 9944:9944 -p 9933:9933 clad-node:latest --dev
+
+FROM debian:bookworm-slim
+
+LABEL org.opencontainers.image.source="https://github.com/clad-sovereign/clad-studio"
+LABEL org.opencontainers.image.description="Clad Studio - Sovereign tokenization node"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+
+# Install minimal runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    libssl3 && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
+
+# Create a non-root user for security
+RUN useradd -m -u 1000 -U -s /bin/sh -d /clad-node clad && \
+    mkdir -p /clad-node/.local/share && \
+    chown -R clad:clad /clad-node
+
+# Copy the pre-built binary from build context
+# In CI, this is copied from the build job artifacts
+COPY clad-node /usr/local/bin/
+RUN chmod +x /usr/local/bin/clad-node
+
+# Switch to non-root user
+USER clad
+
+# Expose ports:
+# 9944: WebSocket RPC (primary for Polkadot.js Apps)
+# 9933: HTTP RPC
+# 30333: P2P networking
+# 9615: Prometheus metrics
+EXPOSE 9944 9933 30333 9615
+
+# Set working directory for chain data
+WORKDIR /clad-node
+
+# Health check - verify node responds to RPC
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:9933/health || exit 1
+
+# Default entrypoint
+ENTRYPOINT ["/usr/local/bin/clad-node"]
+
+# Default command (can be overridden in docker-compose or CLI)
+# --rpc-external: Allow external RPC connections (required in container)
+# --rpc-cors all: Allow CORS from any origin (for Polkadot.js Apps)
+CMD ["--dev", "--rpc-external", "--rpc-cors", "all"]

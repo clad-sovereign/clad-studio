@@ -1,6 +1,6 @@
 # Docker Setup Guide
 
-This guide explains how to run a local multi-validator Clad Studio testnet using Docker.
+This guide explains how to run a local multi-validator Clad Studio testnet using Docker or Podman.
 
 ## Prerequisites
 
@@ -11,16 +11,22 @@ This guide explains how to run a local multi-validator Clad Studio testnet using
 
 ### Installation
 
+**macOS (Podman - Recommended):**
+```bash
+brew install podman podman-compose
+podman machine init
+podman machine start
+```
+
 **macOS (Docker):**
 ```bash
 brew install docker docker-compose
 ```
 
-**macOS (Podman):**
+**Ubuntu/Debian (Podman - Recommended):**
 ```bash
-brew install podman podman-compose
-podman machine init
-podman machine start
+sudo apt-get update
+sudo apt-get install podman podman-compose
 ```
 
 **Ubuntu/Debian (Docker):**
@@ -31,43 +37,42 @@ sudo systemctl start docker
 sudo systemctl enable docker
 ```
 
-**Ubuntu/Debian (Podman):**
-```bash
-sudo apt-get update
-sudo apt-get install podman podman-compose
-```
-
-**Note on Podman**: Podman is a drop-in replacement for Docker. If using Podman, simply replace `docker` with `podman` and `docker-compose` with `podman-compose` in all commands below.
+> **Note**: Podman is a drop-in replacement for Docker that runs daemonless (less resource-hungry). If using Podman, replace `docker` with `podman` and `docker-compose` with `podman-compose` in all commands below.
 
 ## Quick Start
 
-### 1. Build and Start the Testnet
+### Option 1: Use Pre-Built Image (Recommended)
 
-From the repository root:
+This is the fastest way to get started - pulls a pre-built image from GitHub Container Registry:
 
 ```bash
-# Build Docker images and start the network
-docker-compose up -d
+# Pull and start the testnet
+export CLAD_IMAGE=ghcr.io/clad-sovereign/clad-node:latest
+podman-compose up -d
 
-# View logs from both validators
-docker-compose logs -f
-
-# View logs from a specific validator
-docker-compose logs -f alice
-docker-compose logs -f bob
+# View logs
+podman-compose logs -f
 ```
 
-This starts a 2-validator testnet with:
-- **Alice** (primary validator) - Ports: 9944 (WS RPC), 9933 (HTTP RPC), 30333 (P2P)
-- **Bob** (secondary validator) - Ports: 9945 (WS RPC), 9934 (HTTP RPC), 30334 (P2P)
+### Option 2: Build from Source (Slow)
 
-### 2. Verify Block Production
+Only use this if you need to test local code changes:
+
+```bash
+# Build from source (~30-60 minutes)
+podman-compose up -d --build
+
+# View logs
+podman-compose logs -f
+```
+
+### Verify Block Production
 
 Check that blocks are being produced and finalized:
 
 ```bash
 # Watch Alice's logs for block production
-docker-compose logs -f alice | grep "Imported"
+podman-compose logs -f alice | grep "Imported"
 
 # Expected output (approximately every 6 seconds):
 # Imported #1 (0x1234...)
@@ -75,19 +80,92 @@ docker-compose logs -f alice | grep "Imported"
 # Finalized #1 (0x1234...)
 ```
 
-### 3. Connect via RPC
+### Connect with Polkadot.js Apps
 
-The RPC endpoint is available at:
-- WebSocket: `ws://localhost:9944`
-- HTTP: `http://localhost:9933`
+The easiest way to interact with your testnet is via **Polkadot.js Apps**:
 
-Test connectivity:
+1. Open https://polkadot.js.org/apps/
+2. Click the network selector (top-left)
+3. Choose "Development" → "Local Node"
+4. Or directly: https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9944
+
+From here you can:
+- View blocks and events
+- Submit extrinsics (mint, transfer, freeze, etc.)
+- Query chain state
+- Manage accounts
+
+## Network Architecture
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│  Alice Node     │◄───────►│   Bob Node      │
+│  (Validator)    │   P2P   │  (Validator)    │
+│                 │         │                 │
+│ WS:  9944       │         │ WS:  9945       │
+│ HTTP: 9933      │         │ HTTP: 9934      │
+│ P2P:  30333     │         │ P2P:  30334     │
+│ Metrics: 9615   │         │ Metrics: 9616   │
+└────────┬────────┘         └────────┬────────┘
+         │                           │
+         └──────────┬────────────────┘
+                    │
+                    ▼
+         clad-network (bridge)
+                    │
+                    ▼
+         External Access (localhost)
+                    │
+         ┌──────────┴──────────┐
+         │                     │
+         ▼                     ▼
+   Polkadot.js Apps      Mobile App
+   (browser)             (future)
+```
+
+## Configuration
+
+### Ports
+
+| Service | WebSocket | HTTP | P2P   | Prometheus |
+|---------|-----------|------|-------|------------|
+| Alice   | 9944      | 9933 | 30333 | 9615       |
+| Bob     | 9945      | 9934 | 30334 | 9616       |
+
+**Port Descriptions:**
+- **WebSocket (9944/9945)**: JSON-RPC over WebSocket for real-time blockchain interaction
+- **HTTP (9933/9934)**: JSON-RPC over HTTP for standard API calls
+- **P2P (30333/30334)**: Peer-to-peer networking for block propagation
+- **Prometheus (9615/9616)**: Metrics endpoint for monitoring and observability
+
+### Chain Specification
+
+The testnet uses the built-in `local` chain spec with:
+- **Consensus**: AURA (6-second block time) + GRANDPA (finality)
+- **Validators**: Alice and Bob (SR25519 keys)
+- **Network**: Private local network
+
+### Data Persistence
+
+Blockchain data is stored in container volumes:
+- `alice-data` - Alice's blockchain database
+- `bob-data` - Bob's blockchain database
+
+To reset the chain:
+
+```bash
+# Stop and remove containers and volumes
+podman-compose down -v
+
+# Restart fresh
+podman-compose up -d
+```
+
+## RPC Examples
 
 ```bash
 # Health check
-curl -H "Content-Type: application/json" \
-     -d '{"id":1, "jsonrpc":"2.0", "method": "system_health"}' \
-     http://localhost:9933
+curl http://localhost:9933/health
 
 # Get chain name
 curl -H "Content-Type: application/json" \
@@ -103,70 +181,69 @@ curl -H "Content-Type: application/json" \
 curl http://localhost:9615/metrics
 ```
 
-## Network Architecture
+## Common Operations
 
-```
-┌─────────────────┐         ┌─────────────────┐
-│  Alice Node     │◄───────►│   Bob Node      │
-│  (Validator)    │   P2P   │  (Validator)    │
-│                 │         │                 │
-│ WS:  9944       │         │ WS:  9945       │
-│ HTTP: 9933      │         │ HTTP: 9934      │
-│ P2P:  30333     │         │ P2P:  30334     │
-└────────┬────────┘         └────────┬────────┘
-         │                           │
-         └──────────┬────────────────┘
-                    │
-                    ▼
-         clad-network (bridge)
-                    │
-                    ▼
-         External Access (localhost)
-```
-
-## Configuration
-
-### Chain Specification
-
-The testnet uses the built-in `local` chain spec with:
-- **Consensus**: AURA (6-second block time) + GRANDPA (finality)
-- **Validators**: Alice and Bob (SR25519 keys)
-- **Network**: Private local network
-
-### Ports
-
-| Service | WebSocket | HTTP | P2P   | Prometheus |
-|---------|-----------|------|-------|------------|
-| Alice   | 9944      | 9933 | 30333 | 9615       |
-| Bob     | 9945      | 9934 | 30334 | 9616       |
-
-**Port Descriptions:**
-- **WebSocket (9944/9945)**: JSON-RPC over WebSocket for real-time blockchain interaction
-- **HTTP (9933/9934)**: JSON-RPC over HTTP for standard API calls
-- **P2P (30333/30334)**: Peer-to-peer networking for block propagation
-- **Prometheus (9615/9616)**: Metrics endpoint for monitoring and observability
-
-### Data Persistence
-
-Blockchain data is stored in Docker volumes:
-- `alice-data` - Alice's blockchain database
-- `bob-data` - Bob's blockchain database
-
-To reset the chain:
+### Start the Network
 
 ```bash
-# Stop and remove containers and volumes
-docker-compose down -v
+# Using pre-built image (fast)
+export CLAD_IMAGE=ghcr.io/clad-sovereign/clad-node:latest
+podman-compose up -d
+
+# Building from source (slow)
+podman-compose up -d --build
+```
+
+### Stop the Network
+
+```bash
+podman-compose stop
+```
+
+### Restart a Specific Node
+
+```bash
+podman-compose restart alice
+```
+
+### View Live Logs
+
+```bash
+# All nodes
+podman-compose logs -f
+
+# Specific node
+podman-compose logs -f bob
+
+# Last 100 lines
+podman-compose logs --tail=100 alice
+```
+
+### Execute Commands Inside a Container
+
+```bash
+# Open shell in Alice's container
+podman-compose exec alice /bin/sh
+
+# Check node version
+podman-compose exec alice clad-node --version
+```
+
+### Complete Reset
+
+```bash
+# Stop containers and remove volumes
+podman-compose down -v
 
 # Restart fresh
-docker-compose up -d
+podman-compose up -d
 ```
 
 ## Connecting Mobile App
 
 To connect the Clad mobile app to your local testnet:
 
-1. Ensure your mobile device is on the same network as your Docker host
+1. Ensure your mobile device is on the same network as your host machine
 2. Find your machine's local IP address:
 
 ```bash
@@ -181,60 +258,7 @@ hostname -I | awk '{print $1}'
    - WebSocket: `ws://<YOUR_IP>:9944`
    - Example: `ws://192.168.1.100:9944`
 
-**Note**: Using `localhost` or `127.0.0.1` from a mobile device won't work - you must use your machine's actual IP address.
-
-## Common Operations
-
-### Start the Network
-
-```bash
-docker-compose up -d
-```
-
-### Stop the Network
-
-```bash
-docker-compose stop
-```
-
-### Restart a Specific Node
-
-```bash
-docker-compose restart alice
-```
-
-### View Live Logs
-
-```bash
-# All nodes
-docker-compose logs -f
-
-# Specific node
-docker-compose logs -f bob
-
-# Last 100 lines
-docker-compose logs --tail=100 alice
-```
-
-### Execute Commands Inside a Container
-
-```bash
-# Open shell in Alice's container
-docker-compose exec alice /bin/sh
-
-# Check node version
-docker-compose exec alice clad-node --version
-```
-
-### Rebuild After Code Changes
-
-```bash
-# Rebuild images
-docker-compose build
-
-# Or rebuild and restart
-docker-compose up -d --build
-```
+> **Note**: Using `localhost` or `127.0.0.1` from a mobile device won't work - you must use your machine's actual IP address.
 
 ## Troubleshooting
 
@@ -243,28 +267,28 @@ docker-compose up -d --build
 **Symptom**: Logs show nodes starting but no "Imported" messages appear.
 
 **Solutions**:
-1. Check both nodes are running: `docker-compose ps`
-2. Verify network connectivity: `docker-compose exec bob ping alice`
-3. Check Alice's peer count: `docker-compose logs alice | grep "peers"`
-4. Ensure ports aren't blocked by firewall
+1. Check both nodes are running: `podman-compose ps`
+2. Check Alice's peer count: `podman-compose logs alice | grep "peers"`
+3. Wait for Bob to connect (can take 30-60 seconds)
+4. Restart both nodes: `podman-compose restart`
 
 ### Bob Can't Connect to Alice
 
 **Symptom**: Bob's logs show "No peers available" or connection timeouts.
 
 **Solutions**:
-1. Verify Alice started first: `docker-compose up -d alice && sleep 10 && docker-compose up -d bob`
-2. Check the bootnode peer ID matches: `docker-compose logs alice | grep "Local node identity"`
-3. Restart both nodes: `docker-compose restart`
+1. Verify Alice started first and is healthy: `podman-compose ps`
+2. Check the bootnode peer ID matches: `podman-compose logs alice | grep "Local node identity"`
+3. Restart both nodes: `podman-compose down && podman-compose up -d`
 
 ### RPC Not Accessible
 
-**Symptom**: `curl` commands fail or mobile app can't connect.
+**Symptom**: `curl` commands fail or apps can't connect.
 
 **Solutions**:
-1. Verify containers are running: `docker-compose ps`
-2. Check port mappings: `docker-compose port alice 9944`
-3. Test from container first: `docker-compose exec alice curl http://localhost:9933/health`
+1. Verify containers are running: `podman-compose ps`
+2. Check port mappings: `podman-compose port alice 9944`
+3. Test from container first: `podman-compose exec alice curl http://localhost:9933/health`
 4. Check firewall isn't blocking ports 9933/9944
 
 ### Out of Disk Space
@@ -273,41 +297,39 @@ docker-compose up -d --build
 
 **Solutions**:
 ```bash
-# Remove old Docker images
-docker image prune -a
+# Remove old images
+podman image prune -a
 
 # Remove unused volumes
-docker volume prune
+podman volume prune
 
 # Remove all stopped containers
-docker container prune
+podman container prune
 ```
 
-### Slow Build Times
+### Build from Source Fails (Cargo Registry Corruption)
 
-**Symptom**: `docker-compose build` takes 10+ minutes.
+**Symptom**: Build fails with cargo registry errors or manifest parsing errors.
 
-**Solutions**:
-1. Enable BuildKit: `export DOCKER_BUILDKIT=1`
-2. Use more CPU cores: `docker-compose build --parallel`
-3. Ensure `.dockerignore` exists to exclude `target/` directory
+**Why it happens**: Building Substrate inside Docker is resource-intensive and prone to network/registry issues during the ~30-60 minute build.
 
-### Cargo Registry Corruption
+**Solution**: Use the pre-built image instead:
 
-**Symptom**: Build fails with `error: failed to parse manifest at .../Cargo.toml` for a dependency like `base64ct`.
-
-**Solutions**:
-1. Retry the build (often resolves itself)
-2. Build with --no-cache: `docker-compose build --no-cache`
-3. Clear cargo cache and rebuild:
 ```bash
-# Remove existing images
-docker rmi clad-studio_alice clad-studio_bob || true
-# Rebuild
-docker-compose build
+export CLAD_IMAGE=ghcr.io/clad-sovereign/clad-node:latest
+podman-compose up -d
 ```
 
-This is a known transient issue with cargo's registry caching in containerized builds.
+If you must build from source (e.g., testing local changes), try:
+1. Retry the build (often resolves itself)
+2. Build with no cache: `podman-compose build --no-cache`
+3. Use the original Dockerfile which builds inside Linux:
+   ```bash
+   # This builds from source inside a Linux container (~30-60 min)
+   podman-compose up -d --build
+   ```
+
+> **Note for macOS/Windows users**: The `Dockerfile.runtime` approach only works with Linux binaries. Since `cargo build` on macOS produces macOS binaries, they won't run in Linux containers. Use `--build` to compile inside the container, or pull the pre-built image from CI.
 
 ### Chain State Corrupted
 
@@ -316,8 +338,8 @@ This is a known transient issue with cargo's registry caching in containerized b
 **Solution**:
 ```bash
 # Complete reset
-docker-compose down -v
-docker-compose up -d
+podman-compose down -v
+podman-compose up -d
 ```
 
 ## Advanced Configuration
@@ -328,12 +350,12 @@ To use a custom chain specification:
 
 1. Generate chain spec:
 ```bash
-docker-compose run --rm alice build-spec --chain local > custom-spec.json
+podman-compose run --rm alice build-spec --chain local > custom-spec.json
 ```
 
 2. Convert to raw format:
 ```bash
-docker-compose run --rm alice build-spec --chain custom-spec.json --raw > custom-spec-raw.json
+podman-compose run --rm alice build-spec --chain custom-spec.json --raw > custom-spec-raw.json
 ```
 
 3. Update `docker-compose.yml` to use custom spec:
@@ -347,13 +369,13 @@ volumes:
   - ./custom-spec-raw.json:/clad-node/custom-spec-raw.json:ro
 ```
 
-### Running in Development Mode
+### Running a Single Dev Node
 
-For quick testing with a single node:
+For quick testing with instant block sealing:
 
 ```bash
-docker run --rm -p 9944:9944 -p 9933:9933 \
-  clad-studio:latest \
+podman run --rm -p 9944:9944 -p 9933:9933 \
+  ghcr.io/clad-sovereign/clad-node:latest \
   --dev --rpc-external --rpc-cors all
 ```
 
@@ -361,41 +383,41 @@ docker run --rm -p 9944:9944 -p 9933:9933 \
 
 For production use:
 
-1. Remove unsafe RPC flags
-2. Use proper chain specification
-3. Configure TLS/HTTPS for RPC
+1. Remove unsafe RPC flags (`--rpc-cors all`)
+2. Use proper chain specification with real validators
+3. Configure TLS/HTTPS for RPC endpoints
 4. Set up monitoring (Prometheus/Grafana)
-5. Implement proper key management
-6. Use non-root user (already configured in Dockerfile)
+5. Implement proper key management (never use dev keys)
+6. Use dedicated hardware with appropriate resources
 
 ## Testing Checklist
 
 Before submitting a PR with Docker changes:
 
-- [ ] `docker-compose build` succeeds
-- [ ] `docker-compose up -d` starts both nodes
-- [ ] Alice produces blocks within 30 seconds
+- [ ] Pre-built image starts: `CLAD_IMAGE=ghcr.io/clad-sovereign/clad-node:latest podman-compose up -d`
+- [ ] Both nodes show as healthy: `podman-compose ps`
+- [ ] Alice produces blocks within 60 seconds
 - [ ] Bob connects to Alice and syncs blocks
 - [ ] Blocks are finalized (GRANDPA)
 - [ ] RPC endpoint responds: `curl http://localhost:9933/health`
-- [ ] WebSocket RPC works (test with mobile app or Polkadot.js)
-- [ ] `docker-compose down -v` cleans up successfully
+- [ ] Polkadot.js Apps connects via `ws://localhost:9944`
+- [ ] `podman-compose down -v` cleans up successfully
 
 ## Resources
 
+- [Polkadot.js Apps](https://polkadot.js.org/apps/) - Browser-based chain interaction
+- [Podman Documentation](https://docs.podman.io/)
 - [Docker Documentation](https://docs.docker.com/)
-- [Docker Compose Reference](https://docs.docker.com/compose/compose-file/)
-- [Substrate Node Template](https://github.com/substrate-developer-hub/substrate-node-template)
 - [Polkadot SDK Docs](https://docs.polkadot.com/)
 
 ## Support
 
 If you encounter issues not covered here:
 
-1. Check container logs: `docker-compose logs`
-2. Verify Docker setup: `docker info`
+1. Check container logs: `podman-compose logs`
+2. Verify setup: `podman info`
 3. Open an issue on GitHub with:
-   - Docker version: `docker --version`
+   - Podman/Docker version: `podman --version`
    - OS version
    - Full error logs
    - Steps to reproduce

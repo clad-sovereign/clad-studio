@@ -1,0 +1,77 @@
+# Docker Compose for CI testing with pre-built images
+# Uses CLAD_IMAGE environment variable to specify the image
+#
+# Usage:
+#   export CLAD_IMAGE=ghcr.io/clad-sovereign/clad-node:latest
+#   docker compose -f docker-compose.ci.yml up -d
+
+services:
+  alice:
+    image: ${CLAD_IMAGE:-ghcr.io/clad-sovereign/clad-node:latest}
+    container_name: clad-alice
+    ports:
+      - "9944:9944"  # WebSocket RPC
+      - "9933:9933"  # HTTP RPC
+      - "30333:30333"  # P2P
+      - "9615:9615"  # Prometheus
+    command:
+      - "--alice"
+      - "--validator"
+      - "--rpc-external"
+      - "--rpc-cors=all"
+      - "--rpc-methods=Safe"
+      - "--prometheus-external"
+      - "--node-key=0000000000000000000000000000000000000000000000000000000000000001"
+      - "--base-path=/clad-node/data"
+    volumes:
+      - alice-data:/clad-node/data
+    networks:
+      - clad-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9933/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  bob:
+    image: ${CLAD_IMAGE:-ghcr.io/clad-sovereign/clad-node:latest}
+    container_name: clad-bob
+    ports:
+      - "9945:9944"  # WebSocket RPC (different host port)
+      - "9934:9933"  # HTTP RPC (different host port)
+      - "30334:30333"  # P2P (different host port)
+      - "9616:9615"  # Prometheus (different host port)
+    command:
+      - "--bob"
+      - "--validator"
+      - "--rpc-external"
+      - "--rpc-cors=all"
+      - "--rpc-methods=Safe"
+      - "--prometheus-external"
+      - "--node-key=0000000000000000000000000000000000000000000000000000000000000002"
+      - "--base-path=/clad-node/data"
+      - "--bootnodes=/dns/alice/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
+    volumes:
+      - bob-data:/clad-node/data
+    networks:
+      - clad-network
+    depends_on:
+      alice:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9933/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  alice-data:
+  bob-data:
+
+networks:
+  clad-network:
+    driver: bridge

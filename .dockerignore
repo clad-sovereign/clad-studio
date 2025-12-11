@@ -26,7 +26,9 @@ CLAUDE.md
 
 # Docker
 Dockerfile
+Dockerfile.runtime
 docker-compose.yml
+docker-compose.ci.yml
 .dockerignore
 
 # Misc
