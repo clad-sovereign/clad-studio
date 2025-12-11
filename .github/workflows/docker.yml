@@ -1,0 +1,220 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Dockerfile.runtime'
+      - '.github/workflows/docker.yml'
+      - 'docker-compose*.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/clad-node
+
+jobs:
+  build-binary:
+    name: Build Binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rust-src
+          targets: wasm32-unknown-unknown
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git clang curl libssl-dev llvm libudev-dev \
+            make protobuf-compiler pkg-config
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-release-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build node binary (release)
+        run: cargo build --release --locked -p clad-node
+
+      - name: Verify binary
+        run: |
+          ls -lh target/release/clad-node
+          file target/release/clad-node
+          ./target/release/clad-node --version
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clad-node-binary
+          path: target/release/clad-node
+          retention-days: 1
+
+  build-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: build-binary
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: clad-node-binary
+          path: .
+
+      - name: Make binary executable
+        run: chmod +x clad-node
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.runtime
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Test container starts
+        run: |
+          # Use the first tag from metadata (works for both PR and push)
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "Testing image: $IMAGE_TAG"
+
+          # Run without --rm so we can inspect logs if it crashes
+          # Port 9944 is the JSON-RPC port (WebSocket + HTTP on same port in modern Substrate)
+          docker run -d --name clad-test -p 9944:9944 \
+            "$IMAGE_TAG" \
+            --dev --rpc-external --rpc-cors all
+
+          echo "Waiting for node to start..."
+          sleep 10
+
+          # Check if container is still running
+          if ! docker ps | grep -q clad-test; then
+            echo "Container exited unexpectedly. Logs:"
+            docker logs clad-test
+            docker rm clad-test
+            exit 1
+          fi
+
+          # Wait more for node initialization
+          sleep 20
+
+          echo "Testing health endpoint..."
+          # Modern Substrate serves HTTP and WS on the same port (9944)
+          if ! curl -f http://localhost:9944/health; then
+            echo "Health check failed. Container logs:"
+            docker logs clad-test
+            docker stop clad-test || true
+            docker rm clad-test || true
+            exit 1
+          fi
+
+          echo "Node started successfully!"
+          docker stop clad-test
+          docker rm clad-test
+
+  test-compose:
+    name: Test Docker Compose
+    runs-on: ubuntu-latest
+    needs: build-image
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start multi-validator testnet
+        run: |
+          # Use the image we just built
+          export CLAD_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for nodes to start
+        run: sleep 45
+
+      - name: Test Alice node
+        run: |
+          echo "Testing Alice health..."
+          curl -f http://localhost:9933/health
+          echo "Alice is healthy!"
+
+      - name: Test Bob node
+        run: |
+          echo "Testing Bob health..."
+          curl -f http://localhost:9934/health
+          echo "Bob is healthy!"
+
+      - name: Check block production
+        run: |
+          echo "Checking if blocks are being produced..."
+          BLOCK_RESPONSE=$(curl -s -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","method":"chain_getHeader","params":[],"id":1}' \
+            http://localhost:9933)
+          echo "Response: $BLOCK_RESPONSE"
+          BLOCK_NUMBER=$(echo $BLOCK_RESPONSE | jq -r '.result.number')
+          echo "Current block number: $BLOCK_NUMBER"
+          if [ "$BLOCK_NUMBER" = "null" ] || [ -z "$BLOCK_NUMBER" ]; then
+            echo "Failed to get block number"
+            docker compose -f docker-compose.ci.yml logs
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v
