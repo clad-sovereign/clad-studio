@@ -9,18 +9,19 @@
 #   # Run
 #   podman run -p 9944:9944 -p 9933:9933 clad-node:latest --dev
 
-FROM debian:bookworm-slim
+FROM ubuntu:24.04
 
 LABEL org.opencontainers.image.source="https://github.com/clad-sovereign/clad-studio"
 LABEL org.opencontainers.image.description="Clad Studio - Sovereign tokenization node"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 # Install minimal runtime dependencies
+# Using Ubuntu 24.04 to match GitHub Actions runner (glibc 2.39)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    libssl3 && \
+    libssl3t64 && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
