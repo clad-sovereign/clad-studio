@@ -180,13 +180,23 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start multi-validator testnet
+        id: compose-up
         run: |
           # Use the image we just built (tagged as 'main' on main branch, 'latest' also available)
           export CLAD_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main"
-          docker compose -f docker-compose.ci.yml up -d
+          # --wait waits for health checks to pass, --wait-timeout sets max wait time
+          # Health checks: 120s start_period + 5 retries * 30s = ~270s max per container
+          docker compose -f docker-compose.ci.yml up -d --wait --wait-timeout 300
 
-      - name: Wait for nodes to start
-        run: sleep 45
+      - name: Show logs on startup failure
+        if: failure() && steps.compose-up.outcome == 'failure'
+        run: |
+          echo "=== Docker Compose startup failed. Showing logs ==="
+          docker compose -f docker-compose.ci.yml ps -a
+          echo "=== Alice logs ==="
+          docker compose -f docker-compose.ci.yml logs alice
+          echo "=== Bob logs ==="
+          docker compose -f docker-compose.ci.yml logs bob
 
       - name: Test Alice node
         run: |
