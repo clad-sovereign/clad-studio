@@ -5,6 +5,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI](https://github.com/clad-sovereign/clad-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/clad-sovereign/clad-studio/actions)
+[![Docker](https://github.com/clad-sovereign/clad-studio/actions/workflows/docker.yml/badge.svg)](https://github.com/clad-sovereign/clad-studio/actions/workflows/docker.yml)
 
 **Sovereign bond tokenization infrastructure for Polkadot**  
 Polkadot / Substrate • Rust • Compliance-first • Mobile-native • Geopolitically neutral
@@ -83,6 +84,22 @@ cargo build --release --locked
 # ✅ Block production (every 6 seconds)
 # ✅ RPC server at ws://127.0.0.1:9944
 ```
+
+### Docker Quick Start
+
+Run the node instantly using the pre-built image from GitHub Container Registry:
+
+```bash
+# Pull and run (no build required)
+docker run -p 9944:9944 ghcr.io/clad-sovereign/clad-node:latest --dev --rpc-external --rpc-cors all
+
+# Or with Podman
+podman run -p 9944:9944 ghcr.io/clad-sovereign/clad-node:latest --dev --rpc-external --rpc-cors all
+```
+
+Connect via Polkadot.js Apps: https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9944
+
+For multi-validator Docker setup, see [docs/docker-setup.md](docs/docker-setup.md).
 
 ### Available Commands
 
