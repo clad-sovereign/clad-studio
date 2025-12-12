@@ -181,8 +181,8 @@ jobs:
 
       - name: Start multi-validator testnet
         run: |
-          # Use the image we just built
-          export CLAD_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          # Use the image we just built (tagged as 'main' on main branch, 'latest' also available)
+          export CLAD_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main"
           docker compose -f docker-compose.ci.yml up -d
 
       - name: Wait for nodes to start
@@ -191,13 +191,13 @@ jobs:
       - name: Test Alice node
         run: |
           echo "Testing Alice health..."
-          curl -f http://localhost:9933/health
+          curl -f http://localhost:9944/health
           echo "Alice is healthy!"
 
       - name: Test Bob node
         run: |
           echo "Testing Bob health..."
-          curl -f http://localhost:9934/health
+          curl -f http://localhost:9945/health
           echo "Bob is healthy!"
 
       - name: Check block production
@@ -205,7 +205,7 @@ jobs:
           echo "Checking if blocks are being produced..."
           BLOCK_RESPONSE=$(curl -s -H "Content-Type: application/json" \
             -d '{"jsonrpc":"2.0","method":"chain_getHeader","params":[],"id":1}' \
-            http://localhost:9933)
+            http://localhost:9944)
           echo "Response: $BLOCK_RESPONSE"
           BLOCK_NUMBER=$(echo $BLOCK_RESPONSE | jq -r '.result.number')
           echo "Current block number: $BLOCK_NUMBER"
