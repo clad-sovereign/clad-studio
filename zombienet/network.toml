@@ -1,0 +1,26 @@
+# ZombieNet network configuration for clad-studio
+# Spawns a 2-validator network for testing Aura block production + GRANDPA finality
+#
+# Usage:
+#   zombienet -p native spawn zombienet/network.toml
+#
+# Prerequisites:
+#   cargo build --release --locked -p clad-node
+
+[settings]
+timeout = 120
+provider = "native"
+
+[relaychain]
+default_command = "./target/release/clad-node"
+chain = "local"
+
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+args = ["--rpc-port", "9944", "--prometheus-port", "9615"]
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+args = ["--rpc-port", "9945", "--prometheus-port", "9616"]
