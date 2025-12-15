@@ -216,7 +216,7 @@ rm -rf /tmp/clad-*
 
 | Phase                  | Timeline         | Milestones |
 |------------------------|------------------|------------|
-| Phase 1 – Foundation   | Nov 2025 – Feb 2026 | ✅ Pallet production hardening (benchmarking, weights, migrations) • ✅ Multi-sig admin governance • 🚧 Docker containerization • 🚧 Production mobile signing infrastructure |
+| Phase 1 – Foundation   | Nov 2025 – Feb 2026 | ✅ Pallet production hardening (benchmarking, weights, migrations) • ✅ Multi-sig admin governance • ✅ Docker containerization • 🚧 Production mobile signing infrastructure |
 | Phase 2 – Pilots       | Mar – Jun 2026   | 2–3 sovereign/SOE pilots ($10–100M range) • Full mobile admin dashboard • Security audit |
 | Phase 3 – Deployment   | H2 2026 onward   | White-label deployments • Central-bank oracle integrations • Multi-jurisdiction operations |
 
