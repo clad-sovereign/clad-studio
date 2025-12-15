@@ -51,9 +51,9 @@ jobs:
 
       - name: Install ZombieNet
         run: |
-          curl -L -o zombienet https://github.com/paritytech/zombienet/releases/download/v1.3.133/zombienet-linux-x64
-          chmod +x zombienet
-          sudo mv zombienet /usr/local/bin/
+          curl -L -o /tmp/zombienet https://github.com/paritytech/zombienet/releases/download/v1.3.133/zombienet-linux-x64
+          chmod +x /tmp/zombienet
+          sudo mv /tmp/zombienet /usr/local/bin/zombienet
           zombienet version
 
       - name: Run ZombieNet tests
