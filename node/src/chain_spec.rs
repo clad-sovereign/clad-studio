@@ -101,7 +101,7 @@ fn testnet_genesis(
             "admin": root_key,
             "tokenName": b"Clad Token".to_vec(),
             "tokenSymbol": b"CLAD".to_vec(),
-            "decimals": 18u8,
+            "decimals": 6u8,
             "whitelistedAccounts": endowed_accounts,
             "initialBalances": [],
         },
