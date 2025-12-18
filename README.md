@@ -132,6 +132,7 @@ For rapid testing of basic consensus (Aura block production + Grandpa finality):
 ./target/release/clad-node \
   --chain local \
   --alice \
+  --validator \
   --tmp \
   --port 30333 \
   --rpc-port 9944 \
@@ -141,6 +142,7 @@ For rapid testing of basic consensus (Aura block production + Grandpa finality):
 ./target/release/clad-node \
   --chain local \
   --bob \
+  --validator \
   --tmp \
   --port 30334 \
   --rpc-port 9945 \
