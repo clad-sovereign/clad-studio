@@ -128,27 +128,28 @@ cargo clippy --locked -- -D warnings
 For rapid testing of basic consensus (Aura block production + Grandpa finality):
 
 ```bash
-# Terminal 1 - Start Alice
+# Terminal 1 - Start Alice (bootnode)
 ./target/release/clad-node \
   --chain local \
   --alice \
   --tmp \
-  --unsafe-force-node-key-generation \
   --port 30333 \
-  --rpc-port 9944
+  --rpc-port 9944 \
+  --node-key 0000000000000000000000000000000000000000000000000000000000000001
 
-# Terminal 2 - Start Bob
+# Terminal 2 - Start Bob (connects to Alice)
 ./target/release/clad-node \
   --chain local \
   --bob \
   --tmp \
-  --unsafe-force-node-key-generation \
   --port 30334 \
-  --rpc-port 9945
+  --rpc-port 9945 \
+  --node-key 0000000000000000000000000000000000000000000000000000000000000002 \
+  --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
 ```
 
-**Why `--unsafe-force-node-key-generation`?**
-Auto-generates network keys for `--tmp` ephemeral testnets. Only for quick local testing—keys regenerate on restart, breaking peer connectivity.
+**Why `--node-key` and `--bootnodes`?**
+Fixed node keys produce deterministic peer IDs, allowing Bob to find Alice via the bootnode address. With `--tmp`, keys aren't persisted, so deterministic keys ensure reliable peer discovery across restarts.
 
 #### Option 2: 3-Validator Network (Recommended for SDK Validation)
 
