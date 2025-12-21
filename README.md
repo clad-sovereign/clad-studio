@@ -223,7 +223,18 @@ rm -rf /tmp/clad-*
 | Phase 2 – Pilots       | Mar – Jun 2026   | 2–3 sovereign/SOE pilots ($10–100M range) • Full mobile admin dashboard • Security audit |
 | Phase 3 – Deployment   | H2 2026 onward   | White-label deployments • Central-bank oracle integrations • Multi-jurisdiction operations |
 
+## Related Projects
+
+| Repository | Description |
+|------------|-------------|
+| [clad-studio](https://github.com/clad-sovereign/clad-studio) | Substrate blockchain — pallet-clad-token, runtime, node binary (this repo) |
+| clad-mobile (private) | Kotlin Multiplatform mobile signer — biometric auth, offline QR signing |
+| [clad-dashboard](https://github.com/clad-sovereign/clad-dashboard) | SvelteKit monitoring dashboard — read-only chain state, event history |
+| [clad-website](https://github.com/clad-sovereign/clad-website) | Marketing landing page — Astro static site |
+
+**Architecture:** Mobile signs transactions → Chain executes → Dashboard monitors. Private keys never leave mobile devices.
+
 Contact: helloclad@wideas.tech
 
-> **Disclaimer**  
+> **Disclaimer**
 > Clad Sovereign is pre-pilot software. It is not yet intended for production use or real fund issuance. Use only on testnets or local chains.
