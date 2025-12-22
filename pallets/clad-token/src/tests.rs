@@ -909,8 +909,10 @@ fn set_admin_works() {
         // Verify new admin was auto-whitelisted
         assert_eq!(CladToken::whitelist(&50), true);
 
-        // Check AdminChanged event was emitted
-        System::assert_has_event(Event::AdminChanged { old_admin: None, new_admin: 50 }.into());
+        // Check AdminChanged event was emitted (old_admin is 1 from genesis)
+        System::assert_has_event(
+            Event::AdminChanged { old_admin: Some(AdminAccount::get()), new_admin: 50 }.into(),
+        );
 
         // Check Whitelisted event was emitted for new admin
         System::assert_last_event(Event::Whitelisted { account: 50 }.into());
@@ -935,9 +937,11 @@ fn set_admin_tracks_old_admin() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
 
-        // First set_admin: None -> 50
+        // First set_admin: 1 (genesis) -> 50
         assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 50));
-        System::assert_has_event(Event::AdminChanged { old_admin: None, new_admin: 50 }.into());
+        System::assert_has_event(
+            Event::AdminChanged { old_admin: Some(AdminAccount::get()), new_admin: 50 }.into(),
+        );
 
         // Clear events for next assertion
         System::reset_events();
@@ -1020,10 +1024,10 @@ fn integration_admin_rotation_workflow() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
 
-        // Step 1: Initial state - no storage-based admin
-        assert_eq!(CladToken::admin(), None);
+        // Step 1: Initial state - admin set from genesis (account 1)
+        assert_eq!(CladToken::admin(), Some(AdminAccount::get()));
 
-        // Step 2: Genesis admin (account 1) sets first explicit admin (multi-sig placeholder: 100)
+        // Step 2: Genesis admin (account 1) sets new admin (multi-sig placeholder: 100)
         assert_ok!(CladToken::set_admin(RuntimeOrigin::signed(1), 100));
         assert_eq!(CladToken::admin(), Some(100));
         assert_eq!(CladToken::whitelist(&100), true);
@@ -1050,11 +1054,11 @@ fn integration_admin_rotation_workflow() {
     });
 }
 
-/// Tests that admin storage starts as None (uses genesis-configured fallback).
+/// Tests that admin storage is set from genesis config.
 #[test]
-fn admin_storage_starts_as_none() {
+fn admin_storage_set_from_genesis() {
     new_test_ext().execute_with(|| {
-        // Admin storage should be None initially (falls back to genesis config)
-        assert_eq!(CladToken::admin(), None);
+        // Admin storage should be set from genesis config (account 1)
+        assert_eq!(CladToken::admin(), Some(AdminAccount::get()));
     });
 }

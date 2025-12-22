@@ -12,11 +12,11 @@
 //! 4. **Threshold Variations**: 1-of-2, 2-of-3, 3-of-5 configurations
 //! 5. **Integration**: Full ministry workflow simulation
 //!
-//! # Note on Admin Operations
+//! # Admin Operations
 //!
-//! Admin operations (mint, freeze, whitelist, etc.) are tested in the pallet's unit tests.
-//! These runtime integration tests focus on the multi-sig governance mechanics.
-//! Full multi-sig → admin integration requires a `set_admin` extrinsic (future work).
+//! All admin operations (mint, freeze, whitelist, etc.) go through multi-sig governance.
+//! There is no sudo bypass - this matches the production configuration.
+//! See ADR-004: docs/adr/004-production-runtime-configuration.md
 
 use crate::*;
 use codec::Encode;
@@ -30,51 +30,6 @@ type CallHash = [u8; 32];
 
 /// Standard test account balance (100 trillion units, enough for deposits and fees)
 const TEST_ACCOUNT_BALANCE: u128 = 100_000_000_000_000;
-
-/// Build test externalities with initial state for multi-sig testing.
-///
-/// Sets up:
-/// - Well-funded signatory accounts (Alice, Bob, Charlie, Dave, Eve)
-/// - Empty CladToken state (no initial balances/whitelist)
-fn new_test_ext() -> sp_io::TestExternalities {
-    let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-
-    // Fund test accounts with enough balance for deposits and fees
-    pallet_balances::GenesisConfig::<Runtime> {
-        balances: vec![
-            (AccountKeyring::Alice.to_account_id(), TEST_ACCOUNT_BALANCE),
-            (AccountKeyring::Bob.to_account_id(), TEST_ACCOUNT_BALANCE),
-            (AccountKeyring::Charlie.to_account_id(), TEST_ACCOUNT_BALANCE),
-            (AccountKeyring::Dave.to_account_id(), TEST_ACCOUNT_BALANCE),
-            (AccountKeyring::Eve.to_account_id(), TEST_ACCOUNT_BALANCE),
-            (AccountKeyring::Ferdie.to_account_id(), TEST_ACCOUNT_BALANCE),
-        ],
-        dev_accounts: None,
-    }
-    .assimilate_storage(&mut t)
-    .unwrap();
-
-    // Configure sudo key (Alice is the sudo authority)
-    pallet_sudo::GenesisConfig::<Runtime> { key: Some(AccountKeyring::Alice.to_account_id()) }
-        .assimilate_storage(&mut t)
-        .unwrap();
-
-    // Configure CladToken with basic metadata
-    pallet_clad_token::GenesisConfig::<Runtime> {
-        admin: None,
-        token_name: b"Test Sovereign Bond".to_vec(),
-        token_symbol: b"TSB".to_vec(),
-        decimals: 6,
-        whitelisted_accounts: vec![],
-        initial_balances: vec![],
-    }
-    .assimilate_storage(&mut t)
-    .unwrap();
-
-    let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(1));
-    ext
-}
 
 /// Derive a multi-sig account address from signatories and threshold.
 ///
@@ -108,42 +63,81 @@ fn sorted_other_signatories(all_signatories: &[AccountId], caller: &AccountId) -
     others
 }
 
-/// Build test externalities with a multi-sig account as CladTokenAdmin.
+/// Build test externalities with a 2-of-3 multi-sig as admin.
 ///
-/// This simulates the production configuration where a multi-sig committee
-/// controls admin operations. Note: The runtime's CladTokenAdmin is hardcoded,
-/// so this test uses the hardcoded Alice account which happens to match our
-/// runtime configuration. For a true multi-sig admin test, we'd need a
-/// `set_admin` extrinsic (tracked in #38).
+/// This matches the production configuration where a multi-sig committee
+/// controls admin operations. No sudo pallet is included.
 ///
-/// For now, this helper exists for future use when admin can be configured (see #38).
-#[allow(dead_code)]
-fn new_test_ext_with_admin(admin: AccountId) -> sp_io::TestExternalities {
+/// Admin: 2-of-3 multi-sig (Alice, Bob, Charlie)
+fn new_test_ext() -> sp_io::TestExternalities {
+    let alice = AccountKeyring::Alice.to_account_id();
+    let bob = AccountKeyring::Bob.to_account_id();
+    let charlie = AccountKeyring::Charlie.to_account_id();
+
+    // Derive the 2-of-3 multi-sig address
+    let admin_multisig =
+        derive_multisig_account(vec![alice.clone(), bob.clone(), charlie.clone()], 2);
+
     let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
+    // Fund test accounts with enough balance for deposits and fees
     pallet_balances::GenesisConfig::<Runtime> {
         balances: vec![
-            (AccountKeyring::Alice.to_account_id(), TEST_ACCOUNT_BALANCE),
-            (AccountKeyring::Bob.to_account_id(), TEST_ACCOUNT_BALANCE),
-            (AccountKeyring::Charlie.to_account_id(), TEST_ACCOUNT_BALANCE),
+            (alice, TEST_ACCOUNT_BALANCE),
+            (bob, TEST_ACCOUNT_BALANCE),
+            (charlie, TEST_ACCOUNT_BALANCE),
             (AccountKeyring::Dave.to_account_id(), TEST_ACCOUNT_BALANCE),
             (AccountKeyring::Eve.to_account_id(), TEST_ACCOUNT_BALANCE),
             (AccountKeyring::Ferdie.to_account_id(), TEST_ACCOUNT_BALANCE),
-            // Also fund the admin account (multi-sig) for any deposits
-            (admin.clone(), TEST_ACCOUNT_BALANCE),
+            // Fund the admin multi-sig for any deposits
+            (admin_multisig.clone(), TEST_ACCOUNT_BALANCE),
         ],
         dev_accounts: None,
     }
     .assimilate_storage(&mut t)
     .unwrap();
 
-    pallet_sudo::GenesisConfig::<Runtime> { key: Some(AccountKeyring::Alice.to_account_id()) }
+    // Configure CladToken with multi-sig admin
+    pallet_clad_token::GenesisConfig::<Runtime> {
+        admin: Some(admin_multisig),
+        token_name: b"Test Sovereign Bond".to_vec(),
+        token_symbol: b"TSB".to_vec(),
+        decimals: 6,
+        whitelisted_accounts: vec![],
+        initial_balances: vec![],
+    }
+    .assimilate_storage(&mut t)
+    .unwrap();
+
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
+}
+
+/// Build test externalities with a custom admin account.
+///
+/// Allows tests to specify a different admin configuration.
+fn new_test_ext_with_admin(admin: AccountId) -> sp_io::TestExternalities {
+    let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+    // Build balances list, avoiding duplicates if admin is a well-known account
+    let mut balances = vec![
+        (AccountKeyring::Alice.to_account_id(), TEST_ACCOUNT_BALANCE),
+        (AccountKeyring::Bob.to_account_id(), TEST_ACCOUNT_BALANCE),
+        (AccountKeyring::Charlie.to_account_id(), TEST_ACCOUNT_BALANCE),
+        (AccountKeyring::Dave.to_account_id(), TEST_ACCOUNT_BALANCE),
+        (AccountKeyring::Eve.to_account_id(), TEST_ACCOUNT_BALANCE),
+        (AccountKeyring::Ferdie.to_account_id(), TEST_ACCOUNT_BALANCE),
+    ];
+    // Only add admin if not already in the list
+    if !balances.iter().any(|(acc, _)| *acc == admin) {
+        balances.push((admin.clone(), TEST_ACCOUNT_BALANCE));
+    }
+
+    pallet_balances::GenesisConfig::<Runtime> { balances, dev_accounts: None }
         .assimilate_storage(&mut t)
         .unwrap();
 
-    // Note: pallet-clad-token's admin field in genesis is separate from the runtime's
-    // CladTokenAdmin constant. The genesis admin field whitelists the admin account,
-    // but AdminOrigin check uses the runtime's CladTokenAdmin constant.
     pallet_clad_token::GenesisConfig::<Runtime> {
         admin: Some(admin),
         token_name: b"Test Sovereign Bond".to_vec(),
@@ -158,6 +152,45 @@ fn new_test_ext_with_admin(admin: AccountId) -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| System::set_block_number(1));
     ext
+}
+
+/// Execute a 2-of-3 multi-sig admin call (proposal + approval).
+///
+/// Helper function that handles the full multi-sig flow:
+/// 1. First signer proposes the call
+/// 2. Second signer approves (threshold met, executes)
+fn execute_2of3_multisig_call(call: RuntimeCall) {
+    let alice = AccountKeyring::Alice.to_account_id();
+    let bob = AccountKeyring::Bob.to_account_id();
+    let charlie = AccountKeyring::Charlie.to_account_id();
+
+    let signatories = vec![alice.clone(), bob.clone(), charlie.clone()];
+    let multisig_account = derive_multisig_account(signatories.clone(), 2);
+    let call_hash: CallHash = BlakeTwo256::hash_of(&call).into();
+
+    // Step 1: Alice proposes
+    assert_ok!(Multisig::as_multi(
+        RuntimeOrigin::signed(alice.clone()),
+        2,
+        sorted_other_signatories(&signatories, &alice),
+        None,
+        Box::new(call.clone()),
+        Weight::zero(),
+    ));
+
+    // Step 2: Bob approves (threshold met, executes)
+    let timepoint = pallet_multisig::Multisigs::<Runtime>::get(&multisig_account, call_hash)
+        .expect("Multisig should exist")
+        .when;
+
+    assert_ok!(Multisig::as_multi(
+        RuntimeOrigin::signed(bob.clone()),
+        2,
+        sorted_other_signatories(&signatories, &bob),
+        Some(timepoint),
+        Box::new(call),
+        Weight::from_parts(10_000_000_000, 1_000_000),
+    ));
 }
 
 // ============================================================================
@@ -251,23 +284,12 @@ fn multisig_proposal_reserves_deposit() {
 // ============================================================================
 // Multi-Sig Approval Flow Tests
 // ============================================================================
-//
-// These tests verify the multi-sig approval mechanics work correctly.
-// In production, the multi-sig account would be configured as CladTokenAdmin
-// to enable governance-controlled admin operations.
-//
-// Note: Full multi-sig → admin integration testing requires a `set_admin`
-// extrinsic to configure the multi-sig as admin at runtime (see #38).
-// For now, these tests verify the multi-sig mechanics work correctly.
 
 /// Tests complete 2-of-3 multi-sig approval flow.
 ///
 /// Demonstrates the full multi-sig flow:
 /// 1. Alice proposes (threshold not met, call stored)
 /// 2. Bob approves (threshold met, call executes as multi-sig account)
-///
-/// In production, the inner call would be `clad_token::mint(...)` and the
-/// multi-sig account would be configured as CladTokenAdmin.
 #[test]
 fn multisig_2of3_approval_executes_call() {
     new_test_ext().execute_with(|| {
@@ -618,58 +640,45 @@ fn threshold_3of5_larger_committee() {
 // Integration Tests - Full Workflow Simulation
 // ============================================================================
 //
-// These tests demonstrate complete workflows. Admin operations use sudo (root)
-// as a stand-in for multi-sig governance since the runtime's CladTokenAdmin
-// is currently hardcoded. In production, these would go through multi-sig.
+// These tests demonstrate complete workflows with multi-sig governance.
+// All admin operations go through the 2-of-3 multi-sig - no sudo bypass.
 
 /// Tests a complete ministry workflow: whitelist -> mint -> transfer -> freeze.
 ///
 /// Simulates a real-world bond issuance scenario:
-/// 1. Admin whitelists treasury and investor accounts
+/// 1. Admin (multi-sig) whitelists treasury and investor accounts
 /// 2. Admin mints bond tokens to treasury
 /// 3. Treasury distributes tokens to investor
 /// 4. Compliance issue triggers freeze
 /// 5. Issue resolved, investor unfrozen
-///
-/// Note: Uses sudo as stand-in for multi-sig admin. In production, admin ops
-/// would require multi-sig approval (see `set_admin` extrinsic in future work).
 #[test]
 fn integration_full_ministry_workflow() {
     new_test_ext().execute_with(|| {
-        let admin = AccountKeyring::Alice.to_account_id(); // Sudo key in test
-        let treasury = AccountKeyring::Bob.to_account_id();
-        let investor = AccountKeyring::Charlie.to_account_id();
+        let treasury = AccountKeyring::Dave.to_account_id();
+        let investor = AccountKeyring::Eve.to_account_id();
 
-        // Step 1: Whitelist treasury and investor accounts
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(admin.clone()),
-            Box::new(
-                pallet_clad_token::Call::add_to_whitelist { account: treasury.clone() }.into()
-            ),
-        ));
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(admin.clone()),
-            Box::new(
-                pallet_clad_token::Call::add_to_whitelist { account: investor.clone() }.into()
-            ),
-        ));
-
+        // Step 1: Whitelist treasury via multi-sig
+        execute_2of3_multisig_call(
+            pallet_clad_token::Call::add_to_whitelist { account: treasury.clone() }.into(),
+        );
         assert!(CladToken::whitelist(&treasury));
+
+        // Whitelist investor via multi-sig
+        execute_2of3_multisig_call(
+            pallet_clad_token::Call::add_to_whitelist { account: investor.clone() }.into(),
+        );
         assert!(CladToken::whitelist(&investor));
 
-        // Step 2: Mint bond tokens to treasury
+        // Step 2: Mint bond tokens to treasury via multi-sig
         let bond_amount = 100_000_000_000_000u128; // $100M with 6 decimals
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(admin.clone()),
-            Box::new(
-                pallet_clad_token::Call::mint { to: treasury.clone(), amount: bond_amount }.into()
-            ),
-        ));
+        execute_2of3_multisig_call(
+            pallet_clad_token::Call::mint { to: treasury.clone(), amount: bond_amount }.into(),
+        );
 
         assert_eq!(CladToken::balance_of(&treasury), bond_amount);
         assert_eq!(CladToken::total_supply(), bond_amount);
 
-        // Step 3: Treasury distributes to investor
+        // Step 3: Treasury distributes to investor (regular transfer, not admin op)
         let investment_amount = 10_000_000_000_000u128; // $10M
         assert_ok!(CladToken::transfer(
             RuntimeOrigin::signed(treasury.clone()),
@@ -680,11 +689,10 @@ fn integration_full_ministry_workflow() {
         assert_eq!(CladToken::balance_of(&treasury), bond_amount - investment_amount);
         assert_eq!(CladToken::balance_of(&investor), investment_amount);
 
-        // Step 4: Compliance issue - freeze investor
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(admin.clone()),
-            Box::new(pallet_clad_token::Call::freeze { account: investor.clone() }.into()),
-        ));
+        // Step 4: Compliance issue - freeze investor via multi-sig
+        execute_2of3_multisig_call(
+            pallet_clad_token::Call::freeze { account: investor.clone() }.into(),
+        );
 
         assert!(CladToken::is_frozen(&investor));
 
@@ -698,11 +706,10 @@ fn integration_full_ministry_workflow() {
             pallet_clad_token::Error::<Runtime>::AccountFrozen
         );
 
-        // Step 5: Issue resolved - unfreeze
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(admin.clone()),
-            Box::new(pallet_clad_token::Call::unfreeze { account: investor.clone() }.into()),
-        ));
+        // Step 5: Issue resolved - unfreeze via multi-sig
+        execute_2of3_multisig_call(
+            pallet_clad_token::Call::unfreeze { account: investor.clone() }.into(),
+        );
 
         // Investor can transfer again
         assert_ok!(CladToken::transfer(
@@ -724,47 +731,15 @@ fn integration_full_ministry_workflow() {
 // without runtime upgrades. This is critical for production deployments where
 // ministry committees have personnel changes.
 
-/// Tests that sudo can set a new admin via set_admin.
-#[test]
-fn set_admin_via_sudo_works() {
-    new_test_ext().execute_with(|| {
-        let sudo_account = AccountKeyring::Alice.to_account_id();
-        let new_admin = AccountKeyring::Ferdie.to_account_id();
-
-        // Initially, no storage-based admin is set
-        assert_eq!(CladToken::admin(), None);
-
-        // Set new admin via sudo
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(sudo_account),
-            Box::new(pallet_clad_token::Call::set_admin { new_admin: new_admin.clone() }.into()),
-        ));
-
-        // Verify admin was set in storage
-        assert_eq!(CladToken::admin(), Some(new_admin.clone()));
-
-        // Verify new admin was auto-whitelisted
-        assert!(CladToken::whitelist(&new_admin));
-    });
-}
-
 /// Tests that storage-based admin can perform admin operations.
 ///
-/// After setting a new admin via set_admin, that admin should be able
-/// to perform admin operations directly (not through sudo).
+/// When admin is set in storage, that admin can perform admin operations directly.
 #[test]
 fn storage_admin_can_perform_admin_operations() {
-    new_test_ext().execute_with(|| {
-        let sudo_account = AccountKeyring::Alice.to_account_id();
-        let new_admin = AccountKeyring::Ferdie.to_account_id();
-        let investor = AccountKeyring::Dave.to_account_id();
+    let new_admin = AccountKeyring::Ferdie.to_account_id();
+    let investor = AccountKeyring::Dave.to_account_id();
 
-        // Set new admin via sudo
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(sudo_account.clone()),
-            Box::new(pallet_clad_token::Call::set_admin { new_admin: new_admin.clone() }.into()),
-        ));
-
+    new_test_ext_with_admin(new_admin.clone()).execute_with(|| {
         // New admin can whitelist accounts directly
         assert_ok!(CladToken::add_to_whitelist(
             RuntimeOrigin::signed(new_admin.clone()),
@@ -790,49 +765,45 @@ fn storage_admin_can_perform_admin_operations() {
     });
 }
 
-/// Tests admin rotation from one admin to another.
+/// Tests admin rotation from one admin to another via multi-sig.
 ///
 /// Simulates a ministry committee personnel change:
-/// 1. Initial admin (set via sudo)
-/// 2. First admin sets new admin
+/// 1. Initial admin is 2-of-3 multi-sig
+/// 2. Multi-sig votes to set new admin
 /// 3. New admin performs operations
 #[test]
-fn admin_rotation_works() {
+fn admin_rotation_via_multisig_works() {
     new_test_ext().execute_with(|| {
-        let sudo_account = AccountKeyring::Alice.to_account_id();
-        let first_admin = AccountKeyring::Bob.to_account_id();
-        let second_admin = AccountKeyring::Charlie.to_account_id();
+        let new_admin = AccountKeyring::Ferdie.to_account_id();
         let test_account = AccountKeyring::Dave.to_account_id();
 
-        // Step 1: Sudo sets first admin
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(sudo_account),
-            Box::new(pallet_clad_token::Call::set_admin { new_admin: first_admin.clone() }.into()),
-        ));
-        assert_eq!(CladToken::admin(), Some(first_admin.clone()));
+        // Step 1: Rotate admin via multi-sig
+        execute_2of3_multisig_call(
+            pallet_clad_token::Call::set_admin { new_admin: new_admin.clone() }.into(),
+        );
+        assert_eq!(CladToken::admin(), Some(new_admin.clone()));
 
-        // Step 2: First admin rotates to second admin
-        assert_ok!(CladToken::set_admin(
-            RuntimeOrigin::signed(first_admin.clone()),
-            second_admin.clone(),
-        ));
-        assert_eq!(CladToken::admin(), Some(second_admin.clone()));
-
-        // Step 3: Second admin can perform operations
+        // Step 2: New admin can perform operations directly
         assert_ok!(CladToken::add_to_whitelist(
-            RuntimeOrigin::signed(second_admin.clone()),
+            RuntimeOrigin::signed(new_admin.clone()),
             test_account.clone(),
         ));
         assert!(CladToken::whitelist(&test_account));
 
-        // First admin can NO longer perform admin operations (replaced)
+        // Step 3: Old multi-sig can NO longer perform admin operations
+        // (The multi-sig address is no longer the admin)
+        let alice = AccountKeyring::Alice.to_account_id();
+        let bob = AccountKeyring::Bob.to_account_id();
+        let charlie = AccountKeyring::Charlie.to_account_id();
+        let old_multisig = derive_multisig_account(vec![alice, bob, charlie], 2);
+
         assert_noop!(
-            CladToken::mint(RuntimeOrigin::signed(first_admin), test_account.clone(), 1000),
+            CladToken::mint(RuntimeOrigin::signed(old_multisig), test_account.clone(), 1000),
             sp_runtime::DispatchError::BadOrigin
         );
 
-        // Second admin CAN perform admin operations
-        assert_ok!(CladToken::mint(RuntimeOrigin::signed(second_admin), test_account, 1000,));
+        // New admin CAN mint
+        assert_ok!(CladToken::mint(RuntimeOrigin::signed(new_admin), test_account, 1000,));
     });
 }
 
@@ -841,69 +812,39 @@ fn admin_rotation_works() {
 /// This is the production scenario: a 2-of-3 multi-sig committee rotates
 /// to a new 3-of-5 multi-sig committee using the set_admin extrinsic.
 #[test]
-fn multisig_admin_rotation_workflow() {
+fn multisig_admin_rotation_to_new_multisig() {
     new_test_ext().execute_with(|| {
-        let sudo_account = AccountKeyring::Alice.to_account_id();
         let alice = AccountKeyring::Alice.to_account_id();
         let bob = AccountKeyring::Bob.to_account_id();
         let charlie = AccountKeyring::Charlie.to_account_id();
         let dave = AccountKeyring::Dave.to_account_id();
         let eve = AccountKeyring::Eve.to_account_id();
 
-        // Create two multi-sig addresses
+        // Current admin: 2-of-3 (Alice, Bob, Charlie)
         let old_multisig_signatories = vec![alice.clone(), bob.clone(), charlie.clone()];
         let old_multisig = derive_multisig_account(old_multisig_signatories.clone(), 2);
 
+        // New admin: 3-of-5 (Alice, Bob, Charlie, Dave, Eve)
         let new_multisig_signatories =
             vec![alice.clone(), bob.clone(), charlie.clone(), dave.clone(), eve.clone()];
         let new_multisig = derive_multisig_account(new_multisig_signatories, 3);
 
-        // Fund the multi-sig accounts
+        // Fund the new multi-sig account
         assert_ok!(Balances::transfer_allow_death(
             RuntimeOrigin::signed(alice.clone()),
-            old_multisig.clone().into(),
+            new_multisig.clone().into(),
             TEST_ACCOUNT_BALANCE / 10,
         ));
 
-        // Step 1: Sudo sets old multi-sig as initial admin
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(sudo_account),
-            Box::new(pallet_clad_token::Call::set_admin { new_admin: old_multisig.clone() }.into()),
-        ));
+        // Step 1: Verify current admin
         assert_eq!(CladToken::admin(), Some(old_multisig.clone()));
 
-        // Step 2: Old multi-sig committee votes to rotate to new multi-sig
-        // The inner call is set_admin(new_multisig)
-        let rotate_call: RuntimeCall =
-            pallet_clad_token::Call::set_admin { new_admin: new_multisig.clone() }.into();
-        let call_hash: CallHash = BlakeTwo256::hash_of(&rotate_call).into();
+        // Step 2: Old multi-sig votes to rotate to new multi-sig
+        execute_2of3_multisig_call(
+            pallet_clad_token::Call::set_admin { new_admin: new_multisig.clone() }.into(),
+        );
 
-        // Alice proposes (1 of 2)
-        assert_ok!(Multisig::as_multi(
-            RuntimeOrigin::signed(alice.clone()),
-            2,
-            sorted_other_signatories(&old_multisig_signatories, &alice),
-            None,
-            Box::new(rotate_call.clone()),
-            Weight::zero(),
-        ));
-
-        // Get timepoint for second approval
-        let timepoint = pallet_multisig::Multisigs::<Runtime>::get(&old_multisig, call_hash)
-            .expect("Multisig should exist")
-            .when;
-
-        // Bob approves (2 of 2 - threshold met, executes set_admin)
-        assert_ok!(Multisig::as_multi(
-            RuntimeOrigin::signed(bob.clone()),
-            2,
-            sorted_other_signatories(&old_multisig_signatories, &bob),
-            Some(timepoint),
-            Box::new(rotate_call),
-            Weight::from_parts(10_000_000_000, 1_000_000),
-        ));
-
-        // Step 3: Verify admin was rotated to new multi-sig
+        // Step 3: Verify admin was rotated
         assert_eq!(CladToken::admin(), Some(new_multisig.clone()));
 
         // Step 4: New multi-sig should be auto-whitelisted
@@ -914,24 +855,39 @@ fn multisig_admin_rotation_workflow() {
     });
 }
 
-/// Tests that genesis-configured admin still works when storage admin is not set.
-///
-/// This tests the fallback behavior: when Admin storage is None, the runtime
-/// falls back to the compile-time CladTokenAdmin constant.
+/// Tests that non-admin accounts cannot perform admin operations.
 #[test]
-fn genesis_admin_fallback_works() {
+fn non_admin_cannot_perform_admin_operations() {
     new_test_ext().execute_with(|| {
-        // Admin storage is None initially
-        assert_eq!(CladToken::admin(), None);
-
-        // Root origin still works (EnsureRoot in CladTokenAdminOrigin)
-        let sudo_account = AccountKeyring::Alice.to_account_id();
+        let non_admin = AccountKeyring::Ferdie.to_account_id();
         let test_account = AccountKeyring::Dave.to_account_id();
 
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(sudo_account),
-            Box::new(pallet_clad_token::Call::add_to_whitelist { account: test_account }.into()),
-        ));
+        // Non-admin cannot whitelist
+        assert_noop!(
+            CladToken::add_to_whitelist(
+                RuntimeOrigin::signed(non_admin.clone()),
+                test_account.clone()
+            ),
+            sp_runtime::DispatchError::BadOrigin
+        );
+
+        // Non-admin cannot mint
+        assert_noop!(
+            CladToken::mint(RuntimeOrigin::signed(non_admin.clone()), test_account.clone(), 1000),
+            sp_runtime::DispatchError::BadOrigin
+        );
+
+        // Non-admin cannot freeze
+        assert_noop!(
+            CladToken::freeze(RuntimeOrigin::signed(non_admin.clone()), test_account.clone()),
+            sp_runtime::DispatchError::BadOrigin
+        );
+
+        // Non-admin cannot set new admin
+        assert_noop!(
+            CladToken::set_admin(RuntimeOrigin::signed(non_admin), test_account),
+            sp_runtime::DispatchError::BadOrigin
+        );
     });
 }
 
@@ -939,35 +895,39 @@ fn genesis_admin_fallback_works() {
 #[test]
 fn admin_changed_event_tracks_history() {
     new_test_ext().execute_with(|| {
-        let sudo_account = AccountKeyring::Alice.to_account_id();
-        let first_admin = AccountKeyring::Bob.to_account_id();
-        let second_admin = AccountKeyring::Charlie.to_account_id();
+        let first_admin_new = AccountKeyring::Ferdie.to_account_id();
+        let second_admin = AccountKeyring::Dave.to_account_id();
 
-        // First set_admin: None -> first_admin
-        assert_ok!(Sudo::sudo(
-            RuntimeOrigin::signed(sudo_account.clone()),
-            Box::new(pallet_clad_token::Call::set_admin { new_admin: first_admin.clone() }.into()),
-        ));
+        // Get current admin (2-of-3 multi-sig)
+        let alice = AccountKeyring::Alice.to_account_id();
+        let bob = AccountKeyring::Bob.to_account_id();
+        let charlie = AccountKeyring::Charlie.to_account_id();
+        let current_admin = derive_multisig_account(vec![alice, bob, charlie], 2);
+
+        // First set_admin: multi-sig -> first_admin_new
+        execute_2of3_multisig_call(
+            pallet_clad_token::Call::set_admin { new_admin: first_admin_new.clone() }.into(),
+        );
 
         // Check event
         System::assert_has_event(
             pallet_clad_token::Event::AdminChanged {
-                old_admin: None,
-                new_admin: first_admin.clone(),
+                old_admin: Some(current_admin),
+                new_admin: first_admin_new.clone(),
             }
             .into(),
         );
 
-        // Second set_admin: first_admin -> second_admin
+        // Second set_admin: first_admin_new -> second_admin
         assert_ok!(CladToken::set_admin(
-            RuntimeOrigin::signed(first_admin.clone()),
+            RuntimeOrigin::signed(first_admin_new.clone()),
             second_admin.clone(),
         ));
 
-        // Check event has old_admin = Some(first_admin)
+        // Check event has old_admin = Some(first_admin_new)
         System::assert_has_event(
             pallet_clad_token::Event::AdminChanged {
-                old_admin: Some(first_admin),
+                old_admin: Some(first_admin_new),
                 new_admin: second_admin,
             }
             .into(),

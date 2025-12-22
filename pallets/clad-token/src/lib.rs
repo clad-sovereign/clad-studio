@@ -1533,8 +1533,9 @@ pub mod pallet {
 
             Decimals::<T>::put(self.decimals);
 
-            // Whitelist admin if provided
+            // Set and whitelist admin if provided
             if let Some(ref admin) = self.admin {
+                Admin::<T>::put(admin);
                 Whitelist::<T>::insert(admin, true);
             }
 

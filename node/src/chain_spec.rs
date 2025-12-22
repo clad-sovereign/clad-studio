@@ -26,37 +26,31 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
+/// Development chain specification.
+///
+/// Two validators (Alice + Bob) for realistic consensus testing.
+/// Admin is a 2-of-3 multi-sig (Alice, Bob, Charlie) - no sudo, no bypasses.
+///
+/// See ADR-004: docs/adr/004-production-runtime-configuration.md
 pub fn development_config() -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+
+    // 2-of-3 multi-sig admin: Alice, Bob, Charlie
+    // Derived address: 5DjYJStmdZ2rcqXbXGX7TW85JsrW6uG4y9MUcLq2BoPMpRA7
+    // Use Polkadot.js Apps → Developer → Utilities → Create multisig to verify
+    let admin_multisig = account_id_from_ss58("5DjYJStmdZ2rcqXbXGX7TW85JsrW6uG4y9MUcLq2BoPMpRA7")
+        .expect("Valid SS58 address");
 
     Ok(ChainSpec::builder(wasm_binary, Default::default())
         .with_name("Clad Studio Development")
         .with_id("clad_dev")
         .with_chain_type(ChainType::Development)
         .with_genesis_config_patch(testnet_genesis(
-            vec![authority_keys_from_seed("Alice")],
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
-            vec![
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("Bob"),
-                get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                get_account_id_from_seed::<sr25519::Public>("Dave"),
-                get_account_id_from_seed::<sr25519::Public>("Eve"),
-            ],
-        ))
-        .build())
-}
-
-pub fn local_testnet_config() -> Result<ChainSpec, String> {
-    let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-
-    Ok(ChainSpec::builder(wasm_binary, Default::default())
-        .with_name("Clad Studio Local Testnet")
-        .with_id("clad_local")
-        .with_chain_type(ChainType::Local)
-        .with_genesis_config_patch(testnet_genesis(
+            // Two validators for consensus
             vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
+            // Admin: 2-of-3 multi-sig (Alice, Bob, Charlie)
+            admin_multisig.clone(),
+            // Endowed accounts (including multi-sig for deposits)
             vec![
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
                 get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -64,20 +58,27 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
                 get_account_id_from_seed::<sr25519::Public>("Dave"),
                 get_account_id_from_seed::<sr25519::Public>("Eve"),
                 get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                admin_multisig,
             ],
         ))
         .build())
 }
 
-/// Configure testnet genesis state
+/// Parse an SS58 address string into an AccountId.
+fn account_id_from_ss58(address: &str) -> Result<AccountId, String> {
+    use sp_core::crypto::Ss58Codec;
+    AccountId::from_ss58check(address).map_err(|e| format!("Invalid SS58 address: {e:?}"))
+}
+
+/// Configure testnet genesis state.
 ///
 /// # Parameters
 /// - `initial_authorities`: Validator set for Aura (block production) and Grandpa (finality)
-/// - `root_key`: Sudo account with admin privileges
-/// - `endowed_accounts`: Accounts pre-funded with native balance and whitelisted for token transfers
+/// - `admin`: Multi-sig account with admin privileges for pallet-clad-token
+/// - `endowed_accounts`: Accounts pre-funded with native balance
 fn testnet_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
-    root_key: AccountId,
+    admin: AccountId,
     endowed_accounts: Vec<AccountId>,
 ) -> serde_json::Value {
     // Native token endowment: 1,000,000 tokens with 18 decimals (10^18 smallest units)
@@ -94,11 +95,8 @@ fn testnet_genesis(
         "grandpa": {
             "authorities": initial_authorities.iter().map(|x| (x.1.clone(), 1u64)).collect::<Vec<_>>(),
         },
-        "sudo": {
-            "key": Some(root_key.clone()),
-        },
         "cladToken": {
-            "admin": root_key,
+            "admin": admin,
             "tokenName": b"Clad Token".to_vec(),
             "tokenSymbol": b"CLAD".to_vec(),
             "decimals": 6u8,
