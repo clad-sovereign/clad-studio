@@ -1,0 +1,15 @@
+// UniFFI Interface Definition Language (UDL) for `signer-core`.
+//
+// Phase 0 scope: exactly one trivial function, `ping() -> string`, used to
+// prove the cross-compile and binding-generation pipeline end-to-end on both
+// Android and iOS before any correctness-sensitive code is migrated
+// (see clad-studio/docs/migration/01-phases.md, Phase 0).
+//
+// The UDL file is authoritative for the FFI surface; the Rust implementation
+// in src/lib.rs must match exactly. `build.rs` generates the scaffolding that
+// glues the two together at compile time.
+
+namespace signer_core {
+    /// Returns a fixed greeting. Phase 0 liveness check only.
+    string ping();
+};

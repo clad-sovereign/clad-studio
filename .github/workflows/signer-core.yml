@@ -1,0 +1,210 @@
+# signer-core CI — Phase 0 reproducibility gate.
+#
+# Mirrors the local `build-ios.sh` / `build-android.sh` scripts. Any
+# deviation between this workflow and those scripts is a reproducibility
+# bug; fix the script first.
+#
+# Triggers (path-filtered) on changes to the crate, the workspace root, the
+# toolchain pin, and this workflow file itself. Also runs on manual dispatch.
+#
+# See: docs/migration/01-phases.md Phase 0, docs/adr/007-*.md
+
+name: signer-core
+
+on:
+  push:
+    branches: [main, 'restructure/**']
+    paths:
+      - 'crates/signer-core/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/signer-core.yml'
+  pull_request:
+    paths:
+      - 'crates/signer-core/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/signer-core.yml'
+  workflow_dispatch: {}
+
+env:
+  CARGO_TERM_COLOR: always
+  # Retention policy for uploaded artifacts. Tunable; Phase 0 policy:
+  # feature branches 14 days, main 90 days. `actions/upload-artifact@v4`
+  # accepts a single integer per call, so we select below via expression.
+  ARTIFACT_RETENTION_FEATURE_DAYS: 14
+  ARTIFACT_RETENTION_MAIN_DAYS: 90
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint + Rust unit tests. Cheapest gate; runs first.
+  # ---------------------------------------------------------------------------
+  lint-test:
+    name: Lint & Rust tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        # The toolchain file in the repo root pins channel + components +
+        # targets. `rustup show` forces the install on first use.
+        run: rustup show
+
+      - name: Install system deps (protobuf needed by workspace transitively)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang pkg-config \
+            protobuf-compiler libssl-dev
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: signer-core-lint-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+
+      - name: cargo fmt --check (whole workspace)
+        run: cargo fmt -- --check
+
+      - name: cargo clippy -p signer-core
+        run: cargo clippy -p signer-core --all-targets --locked -- -D warnings
+
+      - name: cargo test -p signer-core
+        run: cargo test -p signer-core --locked
+
+  # ---------------------------------------------------------------------------
+  # iOS — produce the xcframework and run the SwiftPM sample test through
+  # the iOS simulator. Requires macos-14 (Apple-silicon, Xcode 16.x).
+  # ---------------------------------------------------------------------------
+  ios-xcframework:
+    name: iOS xcframework + sample test
+    runs-on: macos-14
+    needs: lint-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        # macos-14 ships multiple Xcodes; pin to match local dev.
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Install pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: signer-core-ios-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+
+      - name: Build xcframework (via build-ios.sh)
+        working-directory: crates/signer-core
+        run: ./build-ios.sh
+
+      - name: Run SwiftPM sample test
+        working-directory: crates/signer-core/ios
+        run: |
+          xcodebuild test \
+            -scheme SignerCoreSample \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            | xcpretty || (xcodebuild test \
+                -scheme SignerCoreSample \
+                -destination 'platform=iOS Simulator,name=iPhone 16 Pro'; exit 1)
+        shell: bash
+
+      - name: Package xcframework for upload (zip)
+        working-directory: crates/signer-core
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          ZIP="SignerCore-${SHORT_SHA}.xcframework.zip"
+          ( cd build/ios && zip -qr "../../${ZIP}" SignerCore.xcframework )
+          echo "ARTIFACT=${ZIP}" >> $GITHUB_ENV
+
+      - name: Upload xcframework artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: crates/signer-core/${{ env.ARTIFACT }}
+          if-no-files-found: error
+          retention-days: ${{ github.ref == 'refs/heads/main' && 90 || 14 }}
+
+  # ---------------------------------------------------------------------------
+  # Android — cross-compile per-ABI .so files via cargo-ndk, build the AAR,
+  # and run the JVM sample test against a Linux host shared library.
+  # ---------------------------------------------------------------------------
+  android-aar:
+    name: Android AAR + sample test
+    runs-on: ubuntu-latest
+    needs: lint-test
+    env:
+      # Pin Android NDK to the same version documented in BUILD.md. The
+      # GitHub-hosted runner ships NDK r26d as a side-installed toolchain;
+      # `ANDROID_NDK_HOME` is set by the runner image when we specify the
+      # version via the setup action below.
+      NDK_VERSION: '26.3.11579264'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup show
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install NDK ${{ env.NDK_VERSION }}
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "ndk;${NDK_VERSION}" >/dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --version 3.5.4 --locked
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang pkg-config \
+            protobuf-compiler libssl-dev zip
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: signer-core-android-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+
+      - name: Build host dylib/so, per-ABI .so, and AAR (via build-android.sh)
+        working-directory: crates/signer-core
+        run: ./build-android.sh
+
+      - name: Cache Gradle user home & wrapper dist
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: signer-core-gradle-${{ hashFiles('crates/signer-core/android/**/*.gradle.kts', 'crates/signer-core/android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Run JVM sample test
+        working-directory: crates/signer-core/android
+        run: ./gradlew :sample:test --no-daemon
+
+      - name: Upload AAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: signer-core-${{ github.sha }}.aar
+          # build-android.sh names the file `signer-core-<short-sha>.aar`.
+          path: crates/signer-core/build/android/signer-core-*.aar
+          if-no-files-found: error
+          retention-days: ${{ github.ref == 'refs/heads/main' && 90 || 14 }}

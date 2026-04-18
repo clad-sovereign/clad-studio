@@ -1,0 +1,16 @@
+[package]
+name = "clad-server"
+version = "0.0.0"
+edition = "2021"
+description = "Clad Sovereign backend server (Phase 5 placeholder — see ADR-009)."
+license = "Apache-2.0"
+authors = ["Clad Sovereign <helloclad@wideas.tech>"]
+publish = false
+
+[lib]
+name = "clad_server"
+
+[dependencies]
+# Intentionally empty. Phase 5 (docs/migration/01-phases.md) will introduce
+# axum, tokio, sqlx, subxt, utoipa, etc. Do not add dependencies here during
+# Phases 0–4.
