@@ -1,0 +1,23 @@
+# Pinned Rust toolchain — Phase 0 risk mitigation per
+# docs/migration/01-phases.md (§"Xcode / NDK version skew between local dev
+# and CI"). Local dev, CI, and Phase 2+ NFC-card cross-compiles all resolve
+# to the same compiler.
+[toolchain]
+channel = "1.88.0"
+components = ["rustfmt", "clippy", "rust-src"]
+targets = [
+    "wasm32-unknown-unknown",
+    # iOS — populated in Phase 0 for the signer-core cross-compile.
+    # `x86_64-apple-ios-sim` (Intel-Mac simulator) is omitted: it is a tier-3
+    # target without pre-built std on Rust 1.88.0. We install it on demand in
+    # `build-ios.sh` via `rustup target add` (which installs the x86_64-apple-
+    # ios alias) or build the Intel slice from `x86_64-apple-ios` as a
+    # fallback. Revisit if/when we support Intel-Mac simulator developers.
+    "aarch64-apple-ios",
+    "aarch64-apple-ios-sim",
+    # Android — populated in Phase 0 for cargo-ndk.
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+    "x86_64-linux-android",
+    "i686-linux-android",
+]

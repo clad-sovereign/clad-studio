@@ -1,0 +1,39 @@
+[package]
+name = "signer-core"
+version = "0.0.0"
+edition = "2021"
+description = "Shared protocol and crypto primitives for the Clad Sovereign signer (Phase 0 PoC)."
+license = "Apache-2.0"
+authors = ["Clad Sovereign <helloclad@wideas.tech>"]
+publish = false
+
+# Three crate types:
+# - cdylib: Android (`.so`) and iOS simulator/device (`.dylib`/framework linking) consumption
+# - staticlib: iOS xcframework (lipo-merged static libraries per architecture)
+# - lib (rlib): workspace consumption and `cargo test`
+[lib]
+name = "signer_core"
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[[bin]]
+# UniFFI ships its generator as a library; projects conventionally expose it
+# as a small binary in their own crate. This lets CI run:
+#   cargo run -p signer-core --bin uniffi-bindgen --features uniffi-cli -- <args>
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["uniffi-cli"]
+
+[features]
+default = []
+# Enables the `uniffi-bindgen` binary above. Kept off by default so `cargo build`
+# in the workspace doesn't pull the CLI dependency unnecessarily.
+uniffi-cli = ["uniffi/cli"]
+
+[dependencies]
+uniffi = { version = "0.28.3" }
+
+[build-dependencies]
+uniffi = { version = "0.28.3", features = ["build"] }
+
+[dev-dependencies]
+# (none yet — Phase 1 will introduce golden-corpus tests)

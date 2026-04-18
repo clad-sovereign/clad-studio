@@ -3,6 +3,8 @@ members = [
     "pallets/clad-token",
     "runtime",
     "node",
+    "crates/signer-core",
+    "crates/server",
 ]
 resolver = "2"
 

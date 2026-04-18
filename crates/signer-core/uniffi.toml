@@ -1,0 +1,19 @@
+# UniFFI binding generator configuration for `signer-core`.
+#
+# Phase 0 consumers: JVM sample (Kotlin via JNA) and SwiftPM sample.
+
+[bindings.kotlin]
+# Package name used for the generated Kotlin bindings. Chosen to align with
+# the eventual mobile package root (`tech.wideas.clad`) documented in the
+# root `AGENTS.md`; the `.signer` suffix scopes the FFI surface.
+package_name = "tech.wideas.clad.signer"
+# Android/JVM consumers load the compiled native library by name. This must
+# match the `[lib].name` in Cargo.toml, with the standard platform prefix
+# applied by the OS loader (`libsigner_core.so` / `libsigner_core.dylib`).
+cdylib_name = "signer_core"
+
+[bindings.swift]
+# Module name Swift consumers import.
+module_name = "SignerCore"
+# Swift Package Manager consumes the staticlibs through an `.xcframework`
+# that is produced by `build-ios.sh`.

@@ -1,2 +1,25 @@
 target/
 /docs
+
+# AGENTS.md pointer stubs — never committed (per root AGENTS.md rule).
+AGENTS.md
+CLAUDE.md
+.claude/
+
+# Local macOS cruft.
+.DS_Store
+
+# signer-core build outputs (produced by build-ios.sh / build-android.sh /
+# cargo build). The sample Swift source at ios/Sources/SignerCore/ is
+# regenerated on every build and is not committed; SwiftPM re-populates it
+# when build-ios.sh runs.
+crates/signer-core/build/
+crates/signer-core/ios/Sources/SignerCore/SignerCore.swift
+crates/signer-core/ios/.build/
+crates/signer-core/ios/.swiftpm/
+
+# Gradle local state for the Phase 0 Android sample.
+crates/signer-core/android/.gradle/
+crates/signer-core/android/build/
+crates/signer-core/android/**/build/
+crates/signer-core/android/local.properties
