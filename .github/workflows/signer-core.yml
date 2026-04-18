@@ -78,17 +78,19 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # iOS — produce the xcframework and run the SwiftPM sample test through
-  # the iOS simulator. Requires macos-14 (Apple-silicon, Xcode 16.x).
+  # the iOS simulator. Uses macos-15 (Apple-silicon) where Xcode 16.4 is the
+  # default and iOS 18.5 simulator + iPhone 16 Pro are installed. macos-14
+  # tops out at Xcode 16.2 which no longer matches local dev pins.
   # ---------------------------------------------------------------------------
   ios-xcframework:
     name: iOS xcframework + sample test
-    runs-on: macos-14
+    runs-on: macos-15
     needs: lint-test
     steps:
       - uses: actions/checkout@v4
 
       - name: Select Xcode 16.4
-        # macos-14 ships multiple Xcodes; pin to match local dev.
+        # macos-15 ships multiple Xcodes; pin to match local dev.
         run: sudo xcode-select -s /Applications/Xcode_16.4.app
 
       - name: Install pinned Rust toolchain
