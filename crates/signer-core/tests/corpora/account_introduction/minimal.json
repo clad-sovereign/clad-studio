@@ -1,0 +1,9 @@
+{
+  "description": "account introduction: minimal",
+  "input": {
+    "address": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+    "genesis_hash": null,
+    "name": null
+  },
+  "expected_uri": "substrate:5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+}

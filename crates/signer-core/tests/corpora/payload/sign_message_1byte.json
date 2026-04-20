@@ -1,0 +1,10 @@
+{
+  "description": "sign_message, 1byte inner payload, sr25519, Alice account",
+  "input": {
+    "crypto_type": 1,
+    "action": 3,
+    "account_id_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+    "inner_payload_hex": "ab"
+  },
+  "expected_bytes_hex": "530103d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27dab"
+}

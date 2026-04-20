@@ -1,8 +1,8 @@
 [package]
 name = "signer-core"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
-description = "Shared protocol and crypto primitives for the Clad Sovereign signer (Phase 0 PoC)."
+description = "Shared protocol and crypto primitives for the Clad Sovereign signer."
 license = "Apache-2.0"
 authors = ["Clad Sovereign <helloclad@wideas.tech>"]
 publish = false
@@ -31,9 +31,13 @@ uniffi-cli = ["uniffi/cli"]
 
 [dependencies]
 uniffi = { version = "0.28.3" }
+thiserror = "1"
 
 [build-dependencies]
 uniffi = { version = "0.28.3", features = ["build"] }
 
 [dev-dependencies]
-# (none yet — Phase 1 will introduce golden-corpus tests)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+proptest = "1"
+hex = "0.4"

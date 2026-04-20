@@ -1,0 +1,8 @@
+{
+  "description": "ed25519 nonzero signature, 64 bytes",
+  "input": {
+    "crypto_type": 0,
+    "signature_hex": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+  },
+  "expected_bytes_hex": "00abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+}

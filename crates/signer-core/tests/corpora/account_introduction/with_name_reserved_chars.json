@@ -1,0 +1,9 @@
+{
+  "description": "account introduction: with_name_reserved_chars",
+  "input": {
+    "address": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+    "genesis_hash": null,
+    "name": "Alice@Treasury#1"
+  },
+  "expected_uri": "substrate:5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY?name=Alice%40Treasury%231"
+}

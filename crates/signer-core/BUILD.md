@@ -191,3 +191,58 @@ UDL change, delete `build/` and rerun `build-ios.sh`.
 That's a tier-3 target without a pre-built std on 1.88. It's intentionally
 excluded from `rust-toolchain.toml`. Revisit if/when Intel-Mac simulator
 developers need to run iOS tests.
+
+---
+
+## Module: `uos`
+
+Added in Phase 1.  A byte-for-byte Rust port of the UOS (Universal Offline
+Signatures) protocol previously implemented only in Kotlin.
+
+### Public API (via `lib.rs` re-exports)
+
+| Type / function | Description |
+|-----------------|-------------|
+| `UosPayload` | Unsigned-transaction wrapper; `encode() -> Result<Vec<u8>, UosError>`, `decode(&[u8]) -> Result<Self, UosError>` |
+| `UosSignature` | Signature response wrapper; same encode/decode pattern |
+| `MultiPartQrEncoder` | Splits a payload into ≤1024-byte QR frames |
+| `MultiPartQrDecoder` | Stateful reassembler; `add_frame(Vec<u8>) -> Result<FrameDecodeProgress, UosError>` |
+| `AccountIntroduction` | `substrate:` URI codec; `to_uri() -> String`, `from_uri(&str) -> Result<Self, UosError>` |
+| `UosError` | Sealed flat enum; all error paths in the module |
+| namespace fns | `encode_payload`, `decode_payload`, `encode_signature`, `decode_signature`, `account_intro_to_uri`, `account_intro_from_uri` |
+
+All types are declared in `src/signer_core.udl` and re-exported from `lib.rs`.
+
+### Corpus test workflow
+
+The corpus tests (`tests/uos_*_corpus.rs`) read golden JSON files from
+`tests/corpora/` and assert byte-level parity with the Kotlin reference.
+
+**Re-generate corpus from Kotlin oracle:**
+
+```bash
+cd clad-mobile
+./gradlew :shared:jvmTest --tests "tech.wideas.clad.uos.UosCorpusExport"
+```
+
+**Run Rust corpus + property tests:**
+
+```bash
+cd clad-studio
+cargo test -p signer-core --locked
+cargo test -p signer-core --locked --test uos_property_tests
+```
+
+CI does **not** regenerate corpus files (that would defeat the oracle purpose).
+See `tests/corpora/README.md` for the full workflow.
+
+### Notes
+
+- The inner SCALE-encoded signing payload is treated as **opaque bytes** in
+  Phase 1.  `sr25519`, `ed25519`, and `ecdsa` signing primitives land in
+  Phase 2.
+- `account_introduction` URL encoding matches Java's `URLEncoder.encode`
+  (`application/x-www-form-urlencoded`): spaces → `+`, unreserved set includes
+  `*`.  This differs from RFC 3986; see `tests/corpora/README.md` for details.
+- UniFFI upgrade (past 0.28.3) is deferred to Phase 3 prep to avoid
+  binding-format drift before the mobile wiring lands.
