@@ -1,0 +1,8 @@
+{
+  "description": "ecdsa nonzero signature, 65 bytes",
+  "input": {
+    "crypto_type": 2,
+    "signature_hex": "ababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+  },
+  "expected_bytes_hex": "02ababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+}

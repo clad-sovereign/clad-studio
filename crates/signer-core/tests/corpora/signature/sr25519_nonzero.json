@@ -1,0 +1,8 @@
+{
+  "description": "sr25519 nonzero signature, 64 bytes",
+  "input": {
+    "crypto_type": 1,
+    "signature_hex": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+  },
+  "expected_bytes_hex": "01abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+}

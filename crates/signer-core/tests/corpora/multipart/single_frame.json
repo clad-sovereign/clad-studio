@@ -1,0 +1,7 @@
+{
+  "description": "multipart: single_frame, 35 bytes payload, 1 frame(s)",
+  "payload_hex": "530100d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+  "frames_hex": [
+    "530100d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+  ]
+}

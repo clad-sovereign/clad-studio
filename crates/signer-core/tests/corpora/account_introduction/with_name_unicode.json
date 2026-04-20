@@ -1,0 +1,9 @@
+{
+  "description": "account introduction: with_name_unicode",
+  "input": {
+    "address": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+    "genesis_hash": null,
+    "name": "Caf\u00e9"
+  },
+  "expected_uri": "substrate:5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY?name=Caf%C3%A9"
+}
