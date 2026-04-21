@@ -1,0 +1,8 @@
+{
+  "description": "SS58 encode: Alice sr25519 public key with prefix 42 → standard Substrate address. Cross-checked against polkadot-js (https://polkadot.js.org/apps/#/accounts) and the Substrate `sp_core::crypto::Ss58Codec` implementation.",
+  "input": {
+    "public_key_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+    "prefix": 42
+  },
+  "expected_address": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+}

@@ -9885,12 +9885,18 @@ dependencies = [
 name = "signer-core"
 version = "0.1.0"
 dependencies = [
+ "blake2 0.10.6",
+ "bs58",
+ "ed25519-zebra",
  "hex",
+ "parity-scale-codec",
  "proptest",
+ "schnorrkel",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
  "uniffi",
+ "zeroize",
 ]
 
 [[package]]
