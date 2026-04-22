@@ -114,11 +114,7 @@ jobs:
         run: |
           xcodebuild test \
             -scheme SignerCoreSample \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-            | xcpretty || (xcodebuild test \
-                -scheme SignerCoreSample \
-                -destination 'platform=iOS Simulator,name=iPhone 16 Pro'; exit 1)
-        shell: bash
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
 
       - name: Package xcframework for upload (zip)
         working-directory: crates/signer-core
