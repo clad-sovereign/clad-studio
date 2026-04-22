@@ -3,19 +3,36 @@
 // Phase 0 established the `ping()` liveness function and the cross-compile
 // pipeline.  Phase 1 adds the complete UOS (Universal Offline Signatures)
 // surface: payload codec, signature codec, multi-part QR codec, and the
-// account-introduction URI codec.
+// account-introduction URI codec.  Phase 2 adds the crypto and extrinsic
+// surface (sr25519, ed25519, blake2, ss58, extrinsic construction).
 //
 // ADR-007 governs the FFI boundary rules; in particular:
-//   - No `Option<Result<…>>` shapes — all error paths use `[Throws=UosError]`.
-//   - `UosError` is a sealed flat enum; contextual detail lives in the error's
+//   - No `Option<Result<…>>` shapes — all error paths use `[Throws=...]`.
+//   - Error enums are sealed and flat; contextual detail lives in the error's
 //     `message` string (accessible on Kotlin via `.message`, Swift via
 //     `localizedDescription`).
 //   - `bytes` ↔ `Vec<u8>` / `ByteArray` / `Data`; `boolean` ↔ `bool`.
 //   - Dictionary fields use snake_case matching the Rust struct field names.
 //
+// Phase 2 surface note: the crypto and extrinsic functions below are marked
+// "Phase 2 preview, may evolve in Phase 3" — the FFI surface is conservative
+// (pure functions only, no interface objects) to minimise binding-format drift.
+//
 // UniFFI version: 0.28.3 (upgrade deferred to Phase 3 prep).
 
-// ── Error type ───────────────────────────────────────────────────────────────
+// ── Error types ───────────────────────────────────────────────────────────────
+
+[Error]
+enum CryptoError {
+    "InvalidSecretKey",
+    "InvalidPublicKey",
+    "InvalidSignature",
+    "InvalidAddress",
+    "InvalidPrefix",
+    "InvalidMetadata",
+    "UnknownPallet",
+    "UnknownCall",
+};
 
 [Error]
 enum UosError {
@@ -30,7 +47,38 @@ enum UosError {
     "InvalidUri",
 };
 
-// ── Value types (dictionaries) ───────────────────────────────────────────────
+// ── Phase 2 value types ───────────────────────────────────────────────────────
+
+/// Chain information required for extrinsic signing.
+dictionary ChainInfo {
+    bytes genesis_hash;
+    bytes block_hash;
+    u32 spec_version;
+    u32 tx_version;
+};
+
+/// Signed extension fields (era, nonce, tip).
+///
+/// era_period == 0 means Immortal.  For mortal transactions set era_period to a
+/// power of 2 in the range 4–65536 and era_phase to current_block % era_period.
+///
+/// tip is u64 (UniFFI 0.28 does not support u128 at the FFI boundary).
+/// Practical tip values always fit in u64; the SCALE encoder zero-extends to
+/// Compact<u128> when building the signed extension bytes.
+dictionary SignedExtra {
+    u64 era_period;
+    u64 era_phase;
+    u64 nonce;
+    u64 tip;
+};
+
+/// A complete signed extrinsic ready for RPC submission.
+dictionary SignedExtrinsic {
+    bytes encoded;
+    bytes hash;
+};
+
+// ── Phase 1 value types (dictionaries) ───────────────────────────────────────
 
 /// Decoded unsigned transaction payload.
 dictionary UosPayload {
@@ -112,4 +160,45 @@ namespace signer_core {
 
     [Throws=UosError]
     AccountIntroduction account_intro_from_uri(string uri);
+
+    // ── Phase 2: crypto ───────────────────────────────────────────────────
+    [Throws=CryptoError]
+    string ss58_encode(bytes public_key, u16 prefix);
+
+    [Throws=CryptoError]
+    bytes ss58_decode(string address);
+
+    [Throws=CryptoError]
+    bytes sr25519_sign(bytes signing_payload, bytes secret_key);
+
+    boolean sr25519_verify(bytes message, bytes signature, bytes public_key);
+
+    [Throws=CryptoError]
+    bytes ed25519_sign(bytes signing_payload, bytes secret_key);
+
+    boolean ed25519_verify(bytes message, bytes signature, bytes public_key);
+
+    bytes blake2b_256(bytes data);
+
+    // ── Phase 2: extrinsic ────────────────────────────────────────────────
+    [Throws=CryptoError]
+    bytes build_call_data(string pallet_name, string call_name, sequence<bytes> args);
+
+    bytes build_signing_payload(bytes call_data, SignedExtra extra, ChainInfo chain);
+
+    SignedExtrinsic build_signed_extrinsic(
+        bytes call_data,
+        bytes signer_public_key,
+        bytes signature,
+        SignedExtra extra
+    );
+
+    SignedExtrinsic complete_with_signature(
+        bytes call_data,
+        bytes signer_public_key,
+        bytes signature,
+        SignedExtra extra
+    );
+
+    bytes compute_call_hash(bytes call_data);
 };

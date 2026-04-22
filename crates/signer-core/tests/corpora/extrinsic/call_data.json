@@ -1,0 +1,65 @@
+{
+  "description": "CladToken call data known-answer corpus (Phase 2). Wire format: [pallet_u8][call_u8][0x00 MultiAddress::Id][32-byte AccountId][optional SCALE Compact<u128> amount]. Pending Kotlin-oracle cross-check (deferred to Phase 2b). Pallet index 8, call indices 0–6 from audited constants in call.rs.",
+  "alice_account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+  "vectors": [
+    {
+      "call": "mint",
+      "args": {
+        "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+        "amount": 1
+      },
+      "expected_bytes_hex": "080000d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d04"
+    },
+    {
+      "call": "mint",
+      "args": {
+        "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+        "amount": 1000000
+      },
+      "expected_bytes_hex": "080000d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d02093d00"
+    },
+    {
+      "call": "transfer",
+      "args": {
+        "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+        "amount": 1
+      },
+      "expected_bytes_hex": "080100d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d04"
+    },
+    {
+      "call": "freeze",
+      "args": {
+        "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      },
+      "expected_bytes_hex": "080200d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+    },
+    {
+      "call": "unfreeze",
+      "args": {
+        "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      },
+      "expected_bytes_hex": "080300d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+    },
+    {
+      "call": "add_to_whitelist",
+      "args": {
+        "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      },
+      "expected_bytes_hex": "080400d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+    },
+    {
+      "call": "remove_from_whitelist",
+      "args": {
+        "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      },
+      "expected_bytes_hex": "080500d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+    },
+    {
+      "call": "set_admin",
+      "args": {
+        "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      },
+      "expected_bytes_hex": "080600d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+    }
+  ]
+}

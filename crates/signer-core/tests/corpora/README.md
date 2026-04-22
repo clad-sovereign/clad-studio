@@ -1,9 +1,17 @@
-# UOS Protocol Test Corpora
+# signer-core Test Corpora
 
-This directory contains **golden test vectors** for the Rust port of the UOS
-(Universal Offline Signatures) protocol.  Each JSON file encodes a fixed input
-and the expected binary output.  The corpus tests in `tests/uos_*_corpus.rs`
-load these files and assert that the Rust implementation produces identical bytes.
+This directory contains **golden test vectors** for the Rust port of two
+protocol layers:
+
+- **Phase 1 (UOS):** Universal Offline Signatures encode/decode.  Vectors
+  generated from the Kotlin oracle.
+- **Phase 2 (crypto + extrinsic):** SR25519/ED25519 signing, Blake2b hashing,
+  SS58 encoding, and SCALE-encoded Substrate call data.  Vectors sourced from
+  public Substrate test vectors (Alice key, SS58 prefix 42) or computed from
+  audited constants; Kotlin oracle extraction deferred to Phase 2b.
+
+Each JSON file encodes a fixed input and expected output.  The corpus tests load
+these files at runtime and assert the Rust implementation produces identical output.
 
 ---
 
@@ -44,7 +52,7 @@ compares the Rust output against itself.
 
 ```
 corpora/
-├── payload/              # UosPayload encode/decode tests
+├── payload/              # UosPayload encode/decode tests  (Phase 1 / Kotlin oracle)
 │   ├── sign_tx_empty.json
 │   ├── sign_tx_1byte.json
 │   ├── sign_tx_1024bytes.json
@@ -52,22 +60,28 @@ corpora/
 │   ├── sign_immortal_*.json
 │   ├── sign_hash_*.json
 │   └── sign_message_*.json
-├── signature/            # UosSignature encode/decode tests
+├── signature/            # UosSignature encode/decode tests  (Phase 1 / Kotlin oracle)
 │   ├── sr25519_zeros.json
 │   ├── sr25519_nonzero.json
 │   ├── ed25519_*.json
 │   └── ecdsa_*.json
-├── multipart/            # MultiPartQr{Encoder,Decoder} tests
+├── multipart/            # MultiPartQr{Encoder,Decoder} tests  (Phase 1 / Kotlin oracle)
 │   ├── single_frame.json
 │   ├── three_frame_balanced.json
 │   ├── three_frame_uneven_tail.json
 │   └── large_5kb.json
-└── account_introduction/ # AccountIntroduction URI tests
-    ├── minimal.json
-    ├── with_genesis.json
-    ├── with_name_ascii.json
-    ├── with_name_unicode.json
-    └── with_name_reserved_chars.json
+├── account_introduction/ # AccountIntroduction URI tests  (Phase 1 / Kotlin oracle)
+│   ├── minimal.json
+│   ├── with_genesis.json
+│   ├── with_name_ascii.json
+│   ├── with_name_unicode.json
+│   └── with_name_reserved_chars.json
+├── crypto/               # Crypto KAT vectors  (Phase 2; Kotlin oracle pending Phase 2b)
+│   ├── ss58_encode.json  # Alice pubkey + prefix 42 → SS58 address
+│   ├── ss58_decode.json  # Alice SS58 address → pubkey + prefix
+│   └── blake2b_256.json  # Blake2b-256 known-answer vectors
+└── extrinsic/            # SCALE call data vectors  (Phase 2; Kotlin oracle pending Phase 2b)
+    └── call_data.json    # CladToken calls (mint, transfer, freeze, …) for Alice AccountId
 ```
 
 ---
@@ -158,6 +172,56 @@ The `name` field is URL-encoded per `application/x-www-form-urlencoded` (Java
 - Everything else → `%XX` (two uppercase hex digits)
 
 This matches the Kotlin reference implementation's encoding exactly.
+
+### Phase 2 — crypto/ss58_encode.json
+
+```json
+{
+  "description": "...",
+  "input": { "public_key_hex": "<64 hex chars>", "prefix": 42 },
+  "expected_address": "<SS58 string>"
+}
+```
+
+### Phase 2 — crypto/ss58_decode.json
+
+```json
+{
+  "description": "...",
+  "input": { "address": "<SS58 string>" },
+  "expected_public_key_hex": "<64 hex chars>",
+  "expected_prefix": 42
+}
+```
+
+### Phase 2 — crypto/blake2b_256.json
+
+```json
+{
+  "description": "...",
+  "vectors": [
+    { "description": "...", "input_hex": "<hex>", "expected_hash_hex": "<64 hex chars>" }
+  ]
+}
+```
+
+### Phase 2 — extrinsic/call_data.json
+
+```json
+{
+  "description": "...",
+  "alice_account_hex": "<64 hex chars>",
+  "vectors": [
+    {
+      "call": "mint",
+      "args": { "account_hex": "<64 hex>", "amount": 1 },
+      "expected_bytes_hex": "<hex of [pallet_u8][call_u8][0x00][32-byte AccountId][compact amount]>"
+    }
+  ]
+}
+```
+
+Wire format: `[pallet_index: u8][call_index: u8][0x00 MultiAddress::Id][32-byte AccountId][optional SCALE Compact<u128> amount]`
 
 ---
 

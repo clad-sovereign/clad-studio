@@ -28,10 +28,26 @@ default = []
 # Enables the `uniffi-bindgen` binary above. Kept off by default so `cargo build`
 # in the workspace doesn't pull the CLI dependency unnecessarily.
 uniffi-cli = ["uniffi/cli"]
+# Enable std-dependent feature implementations.
+std = [
+    "schnorrkel/std",
+    "ed25519-zebra/std",
+    "parity-scale-codec/std",
+    "blake2/std",
+    "bs58/std",
+    "hex/std",
+]
 
 [dependencies]
 uniffi = { version = "0.28.3" }
 thiserror = "1"
+schnorrkel = { version = "0.11", default-features = false, features = ["alloc"] }
+ed25519-zebra = { version = "4", default-features = false }
+parity-scale-codec = { version = "3", default-features = false, features = ["derive"] }
+blake2 = { version = "0.10", default-features = false }
+bs58 = { version = "0.5", default-features = false, features = ["alloc"] }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+zeroize = { version = "1", default-features = false, features = ["derive"] }
 
 [build-dependencies]
 uniffi = { version = "0.28.3", features = ["build"] }
@@ -41,3 +57,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 proptest = "1"
 hex = "0.4"
+# schnorrkel's internal nonce-derivation machinery calls into getrandom even
+# for the deterministic signing path.  The `std` feature makes getrandom
+# available during tests.  Production builds stay no_std (see [dependencies]).
+schnorrkel = { version = "0.11", features = ["std"] }
