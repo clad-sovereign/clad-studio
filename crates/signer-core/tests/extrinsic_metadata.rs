@@ -11,15 +11,15 @@ use signer_core::extrinsic::metadata::{
 // ── KNOWN_PALLETS index check ─────────────────────────────────────────────────
 
 #[test]
-fn clad_token_pallet_index_is_8() {
+fn clad_token_pallet_index_is_7() {
     let idx = KNOWN_PALLETS.iter().find(|(n, _)| *n == "CladToken").map(|(_, i)| *i);
-    assert_eq!(idx, Some(8), "CladToken must be pallet index 8");
+    assert_eq!(idx, Some(7), "CladToken must be pallet index 7");
 }
 
 #[test]
-fn multisig_pallet_index_is_7() {
+fn multisig_pallet_index_is_6() {
     let idx = KNOWN_PALLETS.iter().find(|(n, _)| *n == "Multisig").map(|(_, i)| *i);
-    assert_eq!(idx, Some(7), "Multisig must be pallet index 7");
+    assert_eq!(idx, Some(6), "Multisig must be pallet index 6");
 }
 
 // ── validate_known_call_indices ───────────────────────────────────────────────
@@ -40,7 +40,7 @@ fn clad_token_call_indices_are_correct() {
             validate_known_call_indices("CladToken", call).unwrap_or_else(|| {
                 panic!("validate_known_call_indices returned None for CladToken::{call}")
             });
-        assert_eq!(pallet_idx, 8, "CladToken::{call} pallet index must be 8");
+        assert_eq!(pallet_idx, 7, "CladToken::{call} pallet index must be 7");
         assert_eq!(call_idx, *expected_call_idx, "CladToken::{call} call index mismatch");
     }
 }

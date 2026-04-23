@@ -3,9 +3,9 @@
 //! Reads `tests/corpora/extrinsic/call_data.json` and verifies that the Rust
 //! builder produces byte-identical output to the expected vectors.
 //!
-//! The corpus was computed from audited pallet/call constants in `call.rs` and
-//! the SCALE wire-format rules documented in `call.rs` module doc.  Pending
-//! Kotlin-oracle cross-check (Phase 2b).
+//! The corpus was verified against the metadata_v14.scale corpus (Phase 2b): all
+//! pallet-clad-token parameters are `AccountId32` (raw 32 bytes), not `MultiAddress`.
+//! Amount parameters are raw little-endian u128 (16 bytes), not SCALE Compact.
 
 use signer_core::extrinsic::{call, metadata};
 
@@ -54,7 +54,7 @@ fn mint_builder_matches_corpus_vector() {
     let got = call::mint(&alice, 1);
     assert_eq!(
         hex::encode(&got),
-        "080000d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d04"
+        "0700d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d01000000000000000000000000000000"
     );
 }
 
@@ -65,7 +65,7 @@ fn freeze_builder_matches_corpus_vector() {
     let got = call::freeze(&alice);
     assert_eq!(
         hex::encode(&got),
-        "080200d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+        "0702d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
     );
 }
 

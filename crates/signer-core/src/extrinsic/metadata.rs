@@ -1,29 +1,23 @@
 //! Metadata-aware call encoding.
 //!
-//! # Current status — hand-rolled SCALE only (subxt-core deferred)
+//! # Current status — hand-rolled SCALE only (subxt-core deferred beyond restructure)
 //!
-//! The spec (Phase 2 execution plan) originally proposed integrating
-//! `subxt-core 0.38` to dynamically verify call indices against live
-//! `Metadata V15`.  That integration is **deferred to Phase 2b / Phase 3**
-//! for the following reasons:
+//! `subxt-core 0.38` + `subxt-metadata 0.38` have transitive `std`-only paths that
+//! block reliable `no_std + alloc` compilation without forking.  The integration is
+//! **deferred beyond the restructure to the post-Phase-8 NFC firmware track** for
+//! the following reasons:
 //!
-//! 1. `subxt-core 0.38` depends on `subxt-metadata 0.38`, which in turn
-//!    depends on `scale-decode`, `scale-encode`, and `frame-metadata` with
-//!    transitive `std`-only paths that make reliable `no_std + alloc`
-//!    compilation non-trivial without forking.
-//! 2. `pallet-clad-token` has stable, manually audited call indices (0–6 for
-//!    pallet 8) that are unlikely to change in isolation; hard-coding them
-//!    with a test-time cross-check is sufficient for Phase 2.
-//! 3. The metadata corpus (`tests/corpora/metadata/`) requires a live
-//!    `clad-node --dev` instance to regenerate, which is not available in
-//!    this environment.
+//! 1. `subxt-core 0.38` depends on `subxt-metadata 0.38`, which in turn depends on
+//!    `scale-decode`, `scale-encode`, and `frame-metadata` with transitive `std`-only
+//!    paths that make reliable `no_std + alloc` compilation non-trivial without forking.
+//! 2. `pallet-clad-token` call indices 0–6 for pallet 8 are manually audited constants
+//!    that are stable through all restructure phases.  Hand-rolled encoding with
+//!    test-time cross-check is sufficient through Phase 3.
+//! 3. `crates/server` (Phase 5) uses full `subxt` where `std` is fine; no `no_std`
+//!    forcing function exists until post-Phase-8 NFC firmware work.
 //!
-//! When Phase 2b / Phase 3 adds subxt-core, this module should:
-//! - Accept a serialized `Metadata V15` blob.
-//! - Resolve pallet name → pallet index and call name → call index dynamically.
-//! - Validate that the hardcoded constants in `call.rs` match the live metadata.
-//!
-//! Track as: **[Phase 2 / PR #TBD] subxt-core integration — metadata-aware call encoding**
+//! Drift is caught by the metadata-corpus drift-detect test
+//! (`tests/extrinsic_metadata_drift.rs`) and by the `roundtrip-node` CI job.
 
 use crate::crypto::CryptoError;
 use alloc::vec::Vec;
@@ -35,11 +29,11 @@ use super::call::{
 
 /// Known pallet names and their fixed indices in the Clad runtime.
 ///
-/// Source: `runtime/src/lib.rs` `construct_runtime!` and `MultisigPalletConfig.PALLET_INDEX`.
+/// Source: `runtime/src/lib.rs` `construct_runtime!` (verified against metadata_v14.scale corpus).
 ///
 /// These are the indices that would be resolved dynamically by subxt-core once
 /// that integration lands.  They are audited constants for now.
-pub const KNOWN_PALLETS: &[(&str, u8)] = &[("CladToken", CLAD_TOKEN_PALLET), ("Multisig", 7)];
+pub const KNOWN_PALLETS: &[(&str, u8)] = &[("CladToken", CLAD_TOKEN_PALLET), ("Multisig", 6)];
 
 /// Build call data given a pallet name, call name, and raw argument bytes.
 ///
@@ -52,8 +46,8 @@ pub const KNOWN_PALLETS: &[(&str, u8)] = &[("CladToken", CLAD_TOKEN_PALLET), ("M
 ///
 /// | call            | args[0]              | args[1] (optional) |
 /// |-----------------|----------------------|--------------------|
-/// | `mint`          | AccountId (32 bytes) | Compact<u128> amount |
-/// | `transfer`      | AccountId (32 bytes) | Compact<u128> amount |
+/// | `mint`          | AccountId (32 bytes) | raw LE u128 (16 bytes) |
+/// | `transfer`      | AccountId (32 bytes) | raw LE u128 (16 bytes) |
 /// | `freeze`        | AccountId (32 bytes) | — |
 /// | `unfreeze`      | AccountId (32 bytes) | — |
 /// | `add_to_whitelist`    | AccountId (32 bytes) | — |
