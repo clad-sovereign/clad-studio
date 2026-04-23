@@ -14,17 +14,9 @@
 //!
 //! The `crypto` and `extrinsic` modules are written using `alloc::` types
 //! exclusively and are no_std-compatible in isolation (ADR-007 Phase-2 NFC
-//! requirement).  The crate itself links std because UniFFI 0.28 scaffolding
+//! requirement).  The crate itself links std because UniFFI scaffolding
 //! generates `std`-using code; a std-free firmware build would exclude the
 //! UniFFI surface and depend on `signer-core` as a library crate directly.
-
-// `empty_line_after_doc_comments` is suppressed at crate level because the
-// UniFFI 0.28 scaffolding generator (invoked below via `include_scaffolding!`)
-// emits `///`-style doc comments followed by a blank line on top-level
-// constants — a pattern newer clippy rejects but which we cannot modify
-// without forking the generator. Tracked for removal after UniFFI upgrade
-// (deferred to Phase 3 prep per the restructure roadmap).
-#![allow(clippy::empty_line_after_doc_comments)]
 
 // `alloc` is explicitly declared so the `crypto` and `extrinsic` modules can
 // use `alloc::` paths, ensuring they stay compatible with no_std targets
