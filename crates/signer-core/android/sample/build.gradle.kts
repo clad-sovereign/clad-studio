@@ -17,8 +17,12 @@ android {
 
     defaultConfig {
         minSdk = 26
-        targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // targetSdk is deprecated in library defaultConfig (AGP 8.7+); set here instead.
+    testOptions {
+        targetSdk = 35
     }
 
     kotlin {
