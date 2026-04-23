@@ -227,7 +227,21 @@ jobs:
           emulator-options: >-
             -no-snapshot-save -no-window -gpu swiftshader_indirect
             -noaudio -no-boot-anim
-          script: cd crates/signer-core/android && ./gradlew :sample:connectedAndroidTest --no-daemon
+          # Retry up to 2 times to handle transient emulator package-manager
+          # flakes such as "Broken pipe (32)" during APK installation on cold
+          # boot. The emulator stays running between attempts so the retry is
+          # cheap (no re-boot).
+          script: |
+            for attempt in 1 2; do
+              if (cd crates/signer-core/android && ./gradlew :sample:connectedAndroidTest --no-daemon); then
+                exit 0
+              fi
+              if [ "$attempt" -lt 2 ]; then
+                echo "Attempt $attempt failed — waiting 15 s before retry..."
+                sleep 15
+              fi
+            done
+            exit 1
 
       - name: Upload AAR artifact
         uses: actions/upload-artifact@v4
