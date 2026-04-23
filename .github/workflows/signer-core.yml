@@ -1,4 +1,4 @@
-# signer-core CI — Phase 0 reproducibility gate.
+# signer-core CI — Phase 3 reproducibility gate.
 #
 # Mirrors the local `build-ios.sh` / `build-android.sh` scripts. Any
 # deviation between this workflow and those scripts is a reproducibility
@@ -142,10 +142,11 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Android — cross-compile per-ABI .so files via cargo-ndk, build the AAR,
-  # and run the JVM sample test against a Linux host shared library.
+  # and run the instrumented test against an API-30 x86_64 emulator via
+  # reactivecircus/android-emulator-runner. KVM is available on ubuntu-latest.
   # ---------------------------------------------------------------------------
   android-aar:
-    name: Android AAR + sample test
+    name: Android AAR + instrumented test
     runs-on: ubuntu-latest
     needs: lint-test
     env:
@@ -202,9 +203,40 @@ jobs:
             ~/.gradle/wrapper
           key: signer-core-gradle-${{ hashFiles('crates/signer-core/android/**/*.gradle.kts', 'crates/signer-core/android/gradle/wrapper/gradle-wrapper.properties') }}
 
-      - name: Run JVM sample test
+      - name: Install Android emulator system image (API 30 x86_64)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "emulator" \
+            "system-images;android-30;default;x86_64" \
+            "platforms;android-35" >/dev/null
+
+      - name: Assemble Android instrumented-test APK
         working-directory: crates/signer-core/android
-        run: ./gradlew :sample:test --no-daemon
+        run: ./gradlew :sample:assembleDebugAndroidTest --no-daemon
+
+      - name: Run instrumented tests on API-30 x86_64 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: default
+          disable-animations: true
+          disable-spellchecker: true
+          # swiftshader_indirect is the headless software renderer; noaudio and
+          # no-boot-anim shorten boot time on CI runners.
+          emulator-options: >-
+            -no-snapshot-save -no-window -gpu swiftshader_indirect
+            -noaudio -no-boot-anim
+          # One automatic retry handles transient emulator package-manager
+          # flakes (e.g. "Broken pipe (32)" during APK install on cold boot).
+          # The emulator stays running so the retry is cheap -- no re-boot.
+          # Plain ASCII only: non-ASCII chars corrupt sh parsing in the runner.
+          script: >-
+            cd crates/signer-core/android &&
+            (./gradlew :sample:connectedAndroidTest --no-daemon ||
+            (echo "Attempt 1 failed -- retrying in 15s" &&
+            sleep 15 &&
+            ./gradlew :sample:connectedAndroidTest --no-daemon))
 
       - name: Upload AAR artifact
         uses: actions/upload-artifact@v4

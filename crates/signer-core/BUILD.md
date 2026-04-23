@@ -20,17 +20,20 @@ Related documents:
 |------|---------|--------------|
 | Rust | 1.88.0 | `clad-studio/rust-toolchain.toml` |
 | UniFFI | 0.29.5 | `crates/signer-core/Cargo.toml` |
-| Xcode | 16.4 | `.github/workflows/signer-core.yml` (macos-14 runner) |
+| Xcode | 16.4 | `.github/workflows/signer-core.yml` (macos-15 runner) |
 | Gradle | 8.14.3 | `crates/signer-core/android/gradle/wrapper/gradle-wrapper.properties` |
-| JDK | 17 | `crates/signer-core/android/sample/build.gradle.kts` (toolchain block) |
-| Kotlin | 2.0.21 | `crates/signer-core/android/sample/build.gradle.kts` |
+| Android Gradle Plugin | 8.7.0 | `crates/signer-core/android/settings.gradle.kts` |
+| Android SDK | compileSdk=35, minSdk=26, targetSdk=35 | `crates/signer-core/android/sample/build.gradle.kts` |
+| JDK | 17 | `crates/signer-core/android/sample/build.gradle.kts` (kotlin jvmToolchain) |
+| Kotlin | 2.0.21 | `crates/signer-core/android/settings.gradle.kts` |
 | JNA | 5.14.0 | `crates/signer-core/android/sample/build.gradle.kts` |
 | cargo-ndk | 3.5.x (CI only) | `.github/workflows/signer-core.yml` |
-| Android NDK | r26d (26.3.11579264) (CI only) | `.github/workflows/signer-core.yml` |
+| Android NDK | r26d (26.3.11579264) | `.github/workflows/signer-core.yml` |
 
-Local dev does **not** require cargo-ndk or Android NDK unless you want to
-produce real per-ABI `.so` files. The Phase 0 JVM sample loads the host
-platform's `libsigner_core.dylib` / `libsigner_core.so` instead.
+To run the Android instrumented test locally you need cargo-ndk and the
+Android NDK — `build-android.sh` cross-compiles the per-ABI `.so` files into
+`build/aar-stage/jni/`, which Gradle picks up via `jniLibs.srcDirs`. Boot an
+emulator (API 30 x86_64) and run `./gradlew :sample:connectedAndroidTest`.
 
 ---
 
@@ -89,28 +92,47 @@ xcodebuild test \
 
 Expected result: `Test Suite 'All tests' passed` + `** TEST SUCCEEDED **`.
 
-### Android: build host dylib and run JVM test
+### Android: build per-ABI .so files and run instrumented test
+
+`build-android.sh` cross-compiles all four Android ABIs and stages the `.so`
+files in `build/aar-stage/jni/<abi>/`. Gradle's `jniLibs.srcDirs` wires that
+directory into the APK so the instrumented test APK on the emulator can load
+`libsigner_core.so` via JNA.
+
+**Prerequisites**: Android NDK r26d installed, `cargo-ndk` on `$PATH`, and a
+running API-30 x86_64 emulator (AVD or hardware device with USB debugging).
 
 ```
 cd clad-studio/crates/signer-core
-./build-android.sh
+export ANDROID_NDK_HOME=/path/to/ndk/26.3.11579264
+./build-android.sh                                  # cross-compile all ABIs
+
 cd android
-./gradlew :sample:test
+# Optionally verify the test APK builds before starting the emulator:
+./gradlew :sample:assembleDebugAndroidTest --no-daemon
+
+# Then boot an emulator and run the instrumented tests:
+./gradlew :sample:connectedAndroidTest --no-daemon
 ```
 
-Expected result: `PingTest > ping returns expected greeting() PASSED` +
-`BUILD SUCCESSFUL`.
+Expected result:
 
-The JVM test is an intentional simplification of the Phase 0 Android
-liveness check — it loads `libsigner_core.dylib` (macOS) or
-`libsigner_core.so` (Linux) via JNA, which is the same load mechanism the
-UniFFI-generated Kotlin uses on Android. This proves the Rust → Kotlin FFI
-binding works without requiring an emulator. Real on-device testing is a
-Phase 3 concern.
+```
+PingInstrumentedTest > pingReturnsExpectedGreeting PASSED
+PingInstrumentedTest > blake2b256ProducesThirtyTwoBytesForFixedInput PASSED
+PingInstrumentedTest > blake2b256IsDeterministic PASSED
+PingInstrumentedTest > blake2b256DifferentInputsProduceDifferentDigests PASSED
+BUILD SUCCESSFUL
+```
 
-### Android: full cross-compile (optional)
+The instrumented tests run inside the emulator's ART JVM against the real
+per-ABI `.so`, confirming the full Rust → UniFFI → Kotlin → JNA → `libsigner_core.so`
+stack works on Android — not just on the dev host.
 
-Only necessary if you're producing an AAR for on-device consumption:
+### Android: full cross-compile
+
+Required for instrumented tests and AAR production. `build-android.sh` also
+accepts `ANDROID_NDK_HOME` to enable cross-compilation:
 
 ```
 export ANDROID_NDK_HOME=/path/to/ndk/26.3.11579264
@@ -120,8 +142,9 @@ rustup target add aarch64-linux-android armv7-linux-androideabi \
 ./build-android.sh     # detects ANDROID_NDK_HOME and cross-compiles all ABIs
 ```
 
-Output: `build/android/signer-core-<sha>.aar` with per-ABI `.so` files under
-`jni/<abi>/`.
+Output:
+- `build/android/signer-core-<sha>.aar` — distributable AAR with per-ABI `.so` files under `jni/<abi>/`.
+- `build/aar-stage/jni/<abi>/libsigner_core.so` — also available here; the sample module's `jniLibs.srcDirs` points to this directory so Gradle packages the `.so` into the instrumented-test APK without a separate copy step.
 
 ---
 
@@ -158,8 +181,8 @@ Jobs (each path-filtered to `crates/signer-core/**`):
 | Job | Runner | Role |
 |-----|--------|------|
 | `lint-test` | ubuntu-latest | `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test` |
-| `ios-xcframework` | macos-14 | Build staticlibs + xcframework + Swift test |
-| `android-aar` | ubuntu-latest | Cross-compile per-ABI `.so` + Kotlin test (JVM) + assemble AAR |
+| `ios-xcframework` | macos-15 | Build staticlibs + xcframework + Swift test |
+| `android-aar` | ubuntu-latest | Cross-compile per-ABI `.so` + assemble AAR + instrumented test on API-30 emulator |
 
 All three must pass before a `crates/signer-core` change merges.
 
@@ -171,11 +194,11 @@ is a reproducibility bug; fix the script, not the workflow.
 
 ## Troubleshooting
 
-**JVM test fails with `UnsatisfiedLinkError`.**
-The host shared library must be staged at `build/android-host/`. Run
-`./build-android.sh` before `./gradlew :sample:test`. If the error mentions
-an architecture mismatch, your JDK and the compiled library are not the same
-arch (e.g., x86_64 JDK on Apple-silicon Mac).
+**Instrumented test fails with `UnsatisfiedLinkError` on emulator.**
+The per-ABI `.so` files must be staged at `build/aar-stage/jni/<abi>/` before
+assembling the APK. Run `./build-android.sh` (with `ANDROID_NDK_HOME` set) first.
+If the emulator ABI is `x86_64` but only `arm64-v8a` `.so` files are present,
+ensure the NDK cross-compiled all four targets successfully.
 
 **`xcodebuild test` fails with "No such module 'SignerCore'".**
 The SwiftPM sample reads the xcframework from `../build/ios/`. Run
