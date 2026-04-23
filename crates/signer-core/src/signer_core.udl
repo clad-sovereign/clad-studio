@@ -18,7 +18,7 @@
 // "Phase 2 preview, may evolve in Phase 3" — the FFI surface is conservative
 // (pure functions only, no interface objects) to minimise binding-format drift.
 //
-// UniFFI version: 0.28.3 (upgrade deferred to Phase 3 prep).
+// UniFFI version: 0.29.5 (upgraded in Sprint A1, Phase 3).
 
 // ── Error types ───────────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ dictionary ChainInfo {
 /// era_period == 0 means Immortal.  For mortal transactions set era_period to a
 /// power of 2 in the range 4–65536 and era_phase to current_block % era_period.
 ///
-/// tip is u64 (UniFFI 0.28 does not support u128 at the FFI boundary).
+/// tip is u64 (UniFFI does not support u128 at the FFI boundary).
 /// Practical tip values always fit in u64; the SCALE encoder zero-extends to
 /// Compact<u128> when building the signed extension bytes.
 dictionary SignedExtra {

@@ -19,7 +19,7 @@ Related documents:
 | Tool | Version | Where pinned |
 |------|---------|--------------|
 | Rust | 1.88.0 | `clad-studio/rust-toolchain.toml` |
-| UniFFI | 0.28.3 | `crates/signer-core/Cargo.toml` |
+| UniFFI | 0.29.5 | `crates/signer-core/Cargo.toml` |
 | Xcode | 16.4 | `.github/workflows/signer-core.yml` (macos-14 runner) |
 | Gradle | 8.14.3 | `crates/signer-core/android/gradle/wrapper/gradle-wrapper.properties` |
 | JDK | 17 | `crates/signer-core/android/sample/build.gradle.kts` (toolchain block) |
@@ -171,11 +171,6 @@ is a reproducibility bug; fix the script, not the workflow.
 
 ## Troubleshooting
 
-**Clippy fails with `empty_line_after_doc_comments` on generated code.**
-The UniFFI 0.28 scaffolding generator emits doc comments followed by a blank
-line on top-level constants. `#![allow(clippy::empty_line_after_doc_comments)]`
-in `src/lib.rs` suppresses this. Remove once UniFFI is upgraded past the fix.
-
 **JVM test fails with `UnsatisfiedLinkError`.**
 The host shared library must be staged at `build/android-host/`. Run
 `./build-android.sh` before `./gradlew :sample:test`. If the error mentions
@@ -244,5 +239,6 @@ See `tests/corpora/README.md` for the full workflow.
 - `account_introduction` URL encoding matches Java's `URLEncoder.encode`
   (`application/x-www-form-urlencoded`): spaces → `+`, unreserved set includes
   `*`.  This differs from RFC 3986; see `tests/corpora/README.md` for details.
-- UniFFI upgrade (past 0.28.3) is deferred to Phase 3 prep to avoid
-  binding-format drift before the mobile wiring lands.
+- UniFFI upgrade resolved: bumped to 0.29.5 in Sprint A1 (Phase 3).
+  `#![allow(clippy::empty_line_after_doc_comments)]` removed — the 0.29.x
+  scaffolding generator no longer emits the offending pattern.
