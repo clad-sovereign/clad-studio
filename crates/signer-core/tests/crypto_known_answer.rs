@@ -5,8 +5,7 @@
 //! needed). SR25519 sign+verify roundtrip lives in the library unit tests
 //! (`src/crypto/sr25519.rs`) using `sign_deterministic`, keeping the
 //! randomized `sign` path out of integration tests per the agreed design.
-//! Byte-stable KAT vectors for both algorithms are in `crypto_kotlin_oracle.rs`
-//! (ignored, pending Phase 2b Kotlin oracle extraction).
+//! Byte-stable KAT vectors for both algorithms are in `crypto_kotlin_oracle.rs`.
 
 use signer_core::{blake2, ed25519, ss58};
 use std::path::Path;

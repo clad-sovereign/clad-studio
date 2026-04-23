@@ -236,11 +236,18 @@ All types are declared in `src/signer_core.udl` and re-exported from `lib.rs`.
 The corpus tests (`tests/uos_*_corpus.rs`) read golden JSON files from
 `tests/corpora/` and assert byte-level parity with the Kotlin reference.
 
-**Re-generate corpus from Kotlin oracle:**
+**Re-generate UOS corpus from Kotlin oracle:**
 
 ```bash
 cd clad-mobile
 ./gradlew :shared:jvmTest --tests "tech.wideas.clad.uos.UosCorpusExport"
+```
+
+**Re-generate crypto KAT corpus from Kotlin oracle (SR25519-verify + Blake2b-256):**
+
+```bash
+cd clad-mobile
+./gradlew :shared:jvmTest --tests "tech.wideas.clad.crypto.UosCryptoCorpusExport"
 ```
 
 **Run Rust corpus + property tests:**

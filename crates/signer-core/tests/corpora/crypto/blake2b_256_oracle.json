@@ -1,0 +1,45 @@
+{
+  "description": "Blake2b-256 oracle corpus — Kotlin oracle (Phase 3). Computed by BouncyCastle Blake2bDigest, no key/salt/personalization. Supplements blake2b_256.json (Phase 2 hand-picked reference vectors).",
+  "vectors": [
+    {
+      "description": "empty input — reference value from blake2.net and RFC 7693",
+      "input_hex": "",
+      "expected_hash_hex": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+    },
+    {
+      "description": "ASCII string hello",
+      "input_hex": "68656c6c6f",
+      "expected_hash_hex": "324dcf027dd4a30a932c441f365a25e86b173defa4b8e58948253471b81b72cf"
+    },
+    {
+      "description": "substrate signing context label",
+      "input_hex": "737562737472617465",
+      "expected_hash_hex": "e3526747cc56ae104d6ea3c85080b09f0e3c87f492e4283dbfe7eb91fbd1d17e"
+    },
+    {
+      "description": "32-byte zero array",
+      "input_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "expected_hash_hex": "89eb0d6a8a691dae2cd15ed0369931ce0a949ecafa5c3f93f8121833646e15c3"
+    },
+    {
+      "description": "Alice public key (well-known Substrate dev key, SS58 prefix 42)",
+      "input_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+      "expected_hash_hex": "2e3fb4c297a84c5cebc0e78257d213d0927ccc7596044c6ba013dd05522aacba"
+    },
+    {
+      "description": "256-byte zero payload — len == Substrate signing payload hash threshold",
+      "input_hex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_hash_hex": "2b69702a889248a4d6620475a105dccd5e0d4230aca8a492aaf6510e55d55b02"
+    },
+    {
+      "description": "single zero byte",
+      "input_hex": "00",
+      "expected_hash_hex": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
+    },
+    {
+      "description": "8-byte binary input 0xdeadbeef01020304",
+      "input_hex": "deadbeef01020304",
+      "expected_hash_hex": "144a027a6f5811aadf91b2beb44fcaaae707c566ff22dc3b75ec289905f6a64e"
+    }
+  ]
+}
