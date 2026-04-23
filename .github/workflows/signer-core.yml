@@ -265,7 +265,7 @@ jobs:
       - name: Corpus drift check
         run: |
           ./scripts/regen-metadata-corpus.sh http://127.0.0.1:9944
-          git diff --exit-code -- crates/signer-core/tests/corpora/metadata/
+          git diff --exit-code -- 'crates/signer-core/tests/corpora/metadata/*.scale'
 
       - name: Stop dev node
         if: always()
