@@ -1,64 +1,49 @@
-// Phase 0 JVM sample consuming signer-core via JNA.
+// Phase 3 Android library sample consuming signer-core via JNA.
 //
-// Design: deliberately a `java-library` Gradle module, NOT a
-// `com.android.library`. An emulator-based instrumented test adds no
-// correctness signal for a `string -> string` FFI hop; the JVM runs the
-// same UniFFI-generated Kotlin + JNA code that an Android process would
-// load, just against the host-platform shared library staged at
-// `../build/android-host/`. Phase 3 swaps in a real `com.android.library`
-// consuming the per-ABI .so files.
+// Converted from kotlin("jvm") to com.android.library in Sprint A2 to support
+// emulator-based instrumented tests that exercise the per-ABI .so files
+// produced by build-android.sh. The JNA dependency (5.14.0) is retained —
+// UniFFI's generated Kotlin calls Native.load("signer_core", ...) which JNA
+// resolves to libsigner_core.so packaged in the APK's jni/<abi>/ directory.
 
 plugins {
-    kotlin("jvm") version "2.0.21"
+    id("com.android.library")
+    kotlin("android")
 }
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+android {
+    namespace = "tech.wideas.clad.signer.sample"
+    compileSdk = 35
+
+    defaultConfig {
+        minSdk = 26
+        targetSdk = 35
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    kotlin {
+        jvmToolchain(17)
+    }
+
+    sourceSets {
+        // UniFFI-generated Kotlin binding emitted to <crate-root>/build/generated-kotlin
+        // by build-android.sh. The two-dot path resolves from android/sample/ up
+        // to the crate root (sample → android → signer-core).
+        getByName("main") {
+            java.srcDirs("../../build/generated-kotlin")
+            // Per-ABI .so files staged by build-android.sh into build/aar-stage/jni/
+            // are picked up here so they are packaged into the APK for emulator runs.
+            jniLibs.srcDirs("../../build/aar-stage/jni")
+        }
     }
 }
 
 dependencies {
-    // JNA powers UniFFI's generated loadIndirect() function.
-    implementation("net.java.dev.jna:jna:5.14.0")
+    // JNA powers UniFFI's generated Native.load() call. The @aar classifier
+    // includes libjnidispatch.so for Android ABIs.
+    implementation("net.java.dev.jna:jna:5.14.0@aar")
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
 
-    testImplementation(kotlin("test"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
-}
-
-// The UniFFI-generated binding file is emitted into
-// `<crate-root>/build/generated-kotlin/tech/wideas/clad/signer/signer_core.kt`
-// by `build-android.sh`. Compile it as part of the `main` source set so the
-// test classpath can import `tech.wideas.clad.signer.ping`.
-//
-// `../../build/...` is the path from `android/sample/` up to the crate root
-// (two directory levels: `sample -> android -> signer-core`) then into
-// `build/generated-kotlin`.
-sourceSets {
-    main {
-        java.srcDirs("../../build/generated-kotlin")
-    }
-}
-
-tasks.test {
-    useJUnitPlatform()
-    // Point JNA at the host-platform .dylib / .so staged by build-android.sh.
-    // `jna.library.path` is the canonical JNA search override; we also set
-    // `java.library.path` for belt-and-braces.
-    //
-    // Path resolves from `android/sample/` up to the crate root then into
-    // `build/android-host` (same two-dot pattern as the `sourceSets` srcDirs
-    // above).
-    val hostLibDir = file("../../build/android-host").absolutePath
-    systemProperty("jna.library.path", hostLibDir)
-    systemProperty("java.library.path", hostLibDir)
-    // The test JVM is forked; make sure each fork sees the overrides even
-    // when running in parallel.
-    jvmArgs("-Djna.library.path=$hostLibDir", "-Djava.library.path=$hostLibDir")
-    testLogging {
-        events("passed", "failed", "skipped")
-        showStandardStreams = true
-        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-    }
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }

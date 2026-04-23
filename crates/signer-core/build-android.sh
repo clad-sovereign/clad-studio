@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 # build-android.sh — Produce Android FFI artifacts AND a host-platform
-# shared library the JVM sample test consumes via JNA.
+# shared library for local development.
 #
-# Phase 0 scope (per docs/migration/01-phases.md and the Phase 0 sprint
+# Phase 3 scope (per docs/migration/01-phases.md and the Phase 3 sprint
 # plan): two outputs.
 #
 #   1. `signer-core-<sha>.aar` — a real Android AAR bundling Kotlin bindings
 #      and per-ABI `.so` files. Produced by CI from Linux with the Android
 #      NDK installed. On macOS dev machines without the NDK, we skip the
 #      cross-compile step and emit a placeholder AAR containing only the
-#      Kotlin sources; real device consumption arrives in Phase 3.
+#      Kotlin sources.
+#
+#      Per-ABI `.so` files are staged to `build/aar-stage/jni/<abi>/` and
+#      picked up by Gradle's `jniLibs.srcDirs` in the sample module, so
+#      the instrumented test APK packages the native library automatically.
 #
 #   2. A host-platform `.dylib` / `.so` at
-#      `build/android-host/<lib>signer_core.<ext>` so `./gradlew :sample:test`
-#      can load the library via JNA and exercise `ping()` on the dev machine
-#      or in Linux CI. This is what satisfies exit criterion #2 ("one
-#      Android test calls into Rust and passes") locally, without an
-#      emulator.
+#      `build/android-host/<lib>signer_core.<ext>` for local tooling that
+#      links against the host library.
 #
 # Usage:
 #   ./build-android.sh            # host .dylib/.so + Kotlin bindings + best-effort AAR
@@ -137,10 +138,10 @@ commit=$COMMIT_SHA
 branch=$BRANCH
 built-at=$BUILT_AT
 rust=$RUST_VERSION
-uniffi=0.28.3
+uniffi=0.29.5
 ndk=$NDK_VERSION
 native_slices_included=$AAR_HAS_NATIVE
-phase=0
+phase=3
 MANIFEST
 
 SHORT_SHA="${COMMIT_SHA:0:7}"
