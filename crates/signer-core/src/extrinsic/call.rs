@@ -10,7 +10,7 @@
 //!
 //! Params are SCALE-encoded:
 //! - `AccountId`: raw 32 bytes (no prefix — `writeAccountId` in Kotlin)
-//! - `u128 amount`: SCALE Compact<u128>
+//! - `u128 amount`: raw little-endian u128 (16 bytes, no compact prefix)
 //! - `u16 threshold`: little-endian u16
 //! - `Vec<AccountId>`: Compact<len> followed by each AccountId (32 bytes each)
 //! - `Option<Timepoint>`: 0x00 (None) or 0x01 + height(u32 LE) + index(u32 LE)
@@ -19,12 +19,12 @@
 //!
 //! # Pallet indices
 //!
-//! - `pallet-clad-token`: index **8** (source: `runtime/src/lib.rs` `construct_runtime!`)
-//! - `pallet-multisig`:   index **7** (source: `MultisigPalletConfig.PALLET_INDEX`)
+//! - `pallet-clad-token`: index **7** (source: `runtime/src/lib.rs` `construct_runtime!`)
+//! - `pallet-multisig`:   index **6** (source: `runtime/src/lib.rs` `construct_runtime!`)
 
 use alloc::vec::Vec;
 
-use self::scale::{compact_u128, compact_u64, compact_usize};
+use self::scale::{compact_u64, compact_usize};
 
 // Re-export the helper module so tests can use it directly.
 pub(crate) mod scale;
@@ -35,7 +35,7 @@ pub type CallData = Vec<u8>;
 // ── pallet-clad-token ─────────────────────────────────────────────────────────
 
 /// Pallet index for `pallet-clad-token` in the Clad runtime.
-pub const CLAD_TOKEN_PALLET: u8 = 8;
+pub const CLAD_TOKEN_PALLET: u8 = 7;
 
 /// Call indices for `pallet-clad-token`.
 pub mod clad_token_call {
@@ -51,37 +51,37 @@ pub mod clad_token_call {
 /// Build a `mint(to, amount)` call.
 ///
 /// `to` must be exactly 32 bytes (AccountId).
-/// `amount` is a SCALE Compact<u128>.
+/// `amount` encodes as a raw little-endian u128 (16 bytes) — no compact prefix,
+/// because the pallet declares `amount: u128` without `#[codec(compact)]`.
 pub fn mint(to: &[u8], amount: u128) -> CallData {
     assert_eq!(to.len(), 32, "AccountId must be 32 bytes");
-    let mut out = Vec::with_capacity(2 + 32 + 17);
+    let mut out = Vec::with_capacity(2 + 32 + 16);
     out.push(CLAD_TOKEN_PALLET);
     out.push(clad_token_call::MINT);
-    out.push(0x00); // MultiAddress::Id prefix
     out.extend_from_slice(to);
-    out.extend_from_slice(&compact_u128(amount));
+    out.extend_from_slice(&amount.to_le_bytes());
     out
 }
 
 /// Build a `transfer(to, amount)` call.
+///
+/// `amount` encodes as a raw little-endian u128 (16 bytes) — no compact prefix.
 pub fn transfer(to: &[u8], amount: u128) -> CallData {
     assert_eq!(to.len(), 32, "AccountId must be 32 bytes");
-    let mut out = Vec::with_capacity(2 + 33 + 17);
+    let mut out = Vec::with_capacity(2 + 32 + 16);
     out.push(CLAD_TOKEN_PALLET);
     out.push(clad_token_call::TRANSFER);
-    out.push(0x00); // MultiAddress::Id prefix
     out.extend_from_slice(to);
-    out.extend_from_slice(&compact_u128(amount));
+    out.extend_from_slice(&amount.to_le_bytes());
     out
 }
 
 /// Build a `freeze(account)` call.
 pub fn freeze(account: &[u8]) -> CallData {
     assert_eq!(account.len(), 32, "AccountId must be 32 bytes");
-    let mut out = Vec::with_capacity(2 + 33);
+    let mut out = Vec::with_capacity(2 + 32);
     out.push(CLAD_TOKEN_PALLET);
     out.push(clad_token_call::FREEZE);
-    out.push(0x00); // MultiAddress::Id prefix
     out.extend_from_slice(account);
     out
 }
@@ -89,10 +89,9 @@ pub fn freeze(account: &[u8]) -> CallData {
 /// Build an `unfreeze(account)` call.
 pub fn unfreeze(account: &[u8]) -> CallData {
     assert_eq!(account.len(), 32, "AccountId must be 32 bytes");
-    let mut out = Vec::with_capacity(2 + 33);
+    let mut out = Vec::with_capacity(2 + 32);
     out.push(CLAD_TOKEN_PALLET);
     out.push(clad_token_call::UNFREEZE);
-    out.push(0x00); // MultiAddress::Id prefix
     out.extend_from_slice(account);
     out
 }
@@ -100,10 +99,9 @@ pub fn unfreeze(account: &[u8]) -> CallData {
 /// Build an `add_to_whitelist(account)` call.
 pub fn add_to_whitelist(account: &[u8]) -> CallData {
     assert_eq!(account.len(), 32, "AccountId must be 32 bytes");
-    let mut out = Vec::with_capacity(2 + 33);
+    let mut out = Vec::with_capacity(2 + 32);
     out.push(CLAD_TOKEN_PALLET);
     out.push(clad_token_call::ADD_TO_WHITELIST);
-    out.push(0x00); // MultiAddress::Id prefix
     out.extend_from_slice(account);
     out
 }
@@ -111,10 +109,9 @@ pub fn add_to_whitelist(account: &[u8]) -> CallData {
 /// Build a `remove_from_whitelist(account)` call.
 pub fn remove_from_whitelist(account: &[u8]) -> CallData {
     assert_eq!(account.len(), 32, "AccountId must be 32 bytes");
-    let mut out = Vec::with_capacity(2 + 33);
+    let mut out = Vec::with_capacity(2 + 32);
     out.push(CLAD_TOKEN_PALLET);
     out.push(clad_token_call::REMOVE_FROM_WHITELIST);
-    out.push(0x00); // MultiAddress::Id prefix
     out.extend_from_slice(account);
     out
 }
@@ -122,10 +119,9 @@ pub fn remove_from_whitelist(account: &[u8]) -> CallData {
 /// Build a `set_admin(new_admin)` call.
 pub fn set_admin(new_admin: &[u8]) -> CallData {
     assert_eq!(new_admin.len(), 32, "AccountId must be 32 bytes");
-    let mut out = Vec::with_capacity(2 + 33);
+    let mut out = Vec::with_capacity(2 + 32);
     out.push(CLAD_TOKEN_PALLET);
     out.push(clad_token_call::SET_ADMIN);
-    out.push(0x00); // MultiAddress::Id prefix
     out.extend_from_slice(new_admin);
     out
 }
@@ -133,7 +129,7 @@ pub fn set_admin(new_admin: &[u8]) -> CallData {
 // ── pallet-multisig ───────────────────────────────────────────────────────────
 
 /// Pallet index for `pallet-multisig` in the Clad runtime.
-pub const MULTISIG_PALLET: u8 = 7;
+pub const MULTISIG_PALLET: u8 = 6;
 
 /// Call indices for `pallet-multisig`.
 pub mod multisig_call {

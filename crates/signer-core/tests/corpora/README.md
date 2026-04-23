@@ -52,6 +52,9 @@ compares the Rust output against itself.
 
 ```
 corpora/
+├── metadata/             # SCALE Metadata V14 corpus  (Phase 2b / regen script)
+│   ├── metadata_v14.scale  -- binary SCALE blob from state_getMetadata
+│   └── metadata_v14.json   -- sidecar: spec_version, transaction_version, captured_at
 ├── payload/              # UosPayload encode/decode tests  (Phase 1 / Kotlin oracle)
 │   ├── sign_tx_empty.json
 │   ├── sign_tx_1byte.json
@@ -222,6 +225,44 @@ This matches the Kotlin reference implementation's encoding exactly.
 ```
 
 Wire format: `[pallet_index: u8][call_index: u8][0x00 MultiAddress::Id][32-byte AccountId][optional SCALE Compact<u128> amount]`
+
+---
+
+### Phase 2b — metadata/metadata_v14.scale + metadata_v14.json
+
+```json
+// metadata_v14.json sidecar
+{
+  "metadata_version": 14,
+  "spec_version": 1,
+  "transaction_version": 1,
+  "captured_at": "2026-04-23T00:00:00Z"
+}
+```
+
+The `metadata_v14.scale` binary is the raw SCALE-encoded `RuntimeMetadataV14` blob
+returned by `state_getMetadata`, prefixed with the 4-byte magic `0x6d657461` (`"meta"`)
+and the version byte `0x0e` (14).  The `polkadot-stable2509-2` runtime exports V14
+(not V15); the corpus file and drift test reflect this reality.
+
+**Drift-detect test:** `tests/extrinsic_metadata_drift.rs` (`metadata_v14_pallet_indices_match_constants`)
+parses the blob on every `cargo test` and asserts that the `CladToken` and `Multisig`
+pallet indices match the hard-coded constants in `src/extrinsic/call.rs` and
+`src/extrinsic/metadata.rs`.
+
+**Regeneration:** Run `./scripts/regen-metadata-corpus.sh` with a live dev node:
+```bash
+./target/release/clad-node --dev --tmp --rpc-port 9944 --rpc-cors all &
+./scripts/wait-for-rpc.sh
+./scripts/regen-metadata-corpus.sh
+git diff --exit-code -- crates/signer-core/tests/corpora/metadata/
+```
+A non-zero diff means a runtime upgrade changed pallet indices — audit before
+committing and update the constants in `call.rs` if necessary.
+
+**CI wiring:** The `roundtrip-node` job in `signer-core.yml` regenerates the corpus
+after running the roundtrip tests and fails if there is any diff, catching silent
+runtime drift in CI.
 
 ---
 

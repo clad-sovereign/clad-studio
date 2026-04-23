@@ -1,5 +1,5 @@
 {
-  "description": "CladToken call data known-answer corpus (Phase 2). Wire format: [pallet_u8][call_u8][0x00 MultiAddress::Id][32-byte AccountId][optional SCALE Compact<u128> amount]. Pending Kotlin-oracle cross-check (deferred to Phase 2b). Pallet index 8, call indices 0–6 from audited constants in call.rs.",
+  "description": "CladToken call data known-answer corpus (Phase 2). Wire format: [pallet_u8][call_u8][32-byte AccountId][optional raw LE u128 amount (16 bytes)]. Pallet index 7, call indices 0–6 from audited constants in call.rs (verified against metadata_v14.scale corpus — parameters are AccountId32, not MultiAddress; amounts are raw u128, not Compact).",
   "alice_account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
   "vectors": [
     {
@@ -8,7 +8,7 @@
         "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
         "amount": 1
       },
-      "expected_bytes_hex": "080000d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d04"
+      "expected_bytes_hex": "0700d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d01000000000000000000000000000000"
     },
     {
       "call": "mint",
@@ -16,7 +16,7 @@
         "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
         "amount": 1000000
       },
-      "expected_bytes_hex": "080000d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d02093d00"
+      "expected_bytes_hex": "0700d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d40420f00000000000000000000000000"
     },
     {
       "call": "transfer",
@@ -24,42 +24,42 @@
         "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
         "amount": 1
       },
-      "expected_bytes_hex": "080100d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d04"
+      "expected_bytes_hex": "0701d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d01000000000000000000000000000000"
     },
     {
       "call": "freeze",
       "args": {
         "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
       },
-      "expected_bytes_hex": "080200d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      "expected_bytes_hex": "0702d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
     },
     {
       "call": "unfreeze",
       "args": {
         "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
       },
-      "expected_bytes_hex": "080300d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      "expected_bytes_hex": "0703d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
     },
     {
       "call": "add_to_whitelist",
       "args": {
         "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
       },
-      "expected_bytes_hex": "080400d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      "expected_bytes_hex": "0704d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
     },
     {
       "call": "remove_from_whitelist",
       "args": {
         "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
       },
-      "expected_bytes_hex": "080500d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      "expected_bytes_hex": "0705d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
     },
     {
       "call": "set_admin",
       "args": {
         "account_hex": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
       },
-      "expected_bytes_hex": "080600d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
+      "expected_bytes_hex": "0706d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"
     }
   ]
 }

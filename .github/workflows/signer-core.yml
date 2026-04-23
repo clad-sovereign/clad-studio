@@ -20,6 +20,10 @@ on:
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - '.github/workflows/signer-core.yml'
+      - 'scripts/**'
+      - 'pallets/**'
+      - 'runtime/**'
+      - 'node/**'
   pull_request:
     paths:
       - 'crates/signer-core/**'
@@ -27,6 +31,10 @@ on:
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - '.github/workflows/signer-core.yml'
+      - 'scripts/**'
+      - 'pallets/**'
+      - 'runtime/**'
+      - 'node/**'
   workflow_dispatch: {}
 
 env:
@@ -206,3 +214,59 @@ jobs:
           path: crates/signer-core/build/android/signer-core-*.aar
           if-no-files-found: error
           retention-days: ${{ github.ref == 'refs/heads/main' && 90 || 14 }}
+
+  # ---------------------------------------------------------------------------
+  # Roundtrip — boot a clad-node --dev instance, run the feature-gated
+  # integration tests, and verify the checked-in metadata corpus is current.
+  # Runs after lint-test so a fast format/clippy failure does not waste the
+  # expensive node build time.
+  # ---------------------------------------------------------------------------
+  roundtrip-node:
+    name: Roundtrip node tests + corpus drift check
+    runs-on: ubuntu-latest
+    needs: lint-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup show
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang pkg-config \
+            protobuf-compiler libssl-dev jq xxd
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: signer-core-roundtrip-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+
+      - name: Build dev node
+        run: cargo build --release --locked -p clad-node
+
+      - name: Start dev node
+        run: |
+          ./target/release/clad-node --dev --tmp --rpc-port 9944 --rpc-cors all &
+          echo "NODE_PID=$!" >> $GITHUB_ENV
+
+      - name: Wait for RPC ready
+        run: ./scripts/wait-for-rpc.sh
+
+      - name: Run roundtrip integration tests
+        run: |
+          cargo test -p signer-core --features roundtrip-node --locked \
+            -- --test-threads=1
+
+      - name: Corpus drift check
+        run: |
+          ./scripts/regen-metadata-corpus.sh http://127.0.0.1:9944
+          git diff --exit-code -- 'crates/signer-core/tests/corpora/metadata/*.scale'
+
+      - name: Stop dev node
+        if: always()
+        run: kill $NODE_PID || true
