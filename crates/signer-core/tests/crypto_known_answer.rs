@@ -86,6 +86,31 @@ fn blake2b_256_corpus() {
     }
 }
 
+// ── Blake2b-128 known-answer vectors ─────────────────────────────────────────
+// Vectors verified against Python hashlib.blake2b(digest_size=16) and the
+// Kotlin Hasher.blake2b128 implementation (both follow the BLAKE2 spec).
+// Used for Substrate Blake2_128Concat storage key hashing.
+
+#[test]
+fn blake2b_128_kat() {
+    let cases: &[(&[u8], &str)] = &[
+        (b"", "cae66941d9efbd404e4d88758ea67670"),
+        (b"abc", "cf4ab791c62b8d2b2109c90275287816"),
+        (&[0u8; 32], "ff0f22492f44bac4c4b30ae58d0e8daa"),
+        (b"Substrate", "f3edea9bdc6ed3c0a83d84038b853a54"),
+    ];
+    for (input, expected) in cases {
+        let got = blake2::blake2b_128(input);
+        assert_eq!(got.len(), 16, "output must be 16 bytes");
+        assert_eq!(
+            hex::encode(&got),
+            *expected,
+            "blake2b_128 mismatch for input len {}",
+            input.len()
+        );
+    }
+}
+
 // ── ED25519 sign + verify roundtrip ──────────────────────────────────────────
 // ED25519 (RFC 8032) is deterministic — no OS RNG needed.
 // SR25519 roundtrip lives in library unit tests (src/crypto/sr25519.rs)
