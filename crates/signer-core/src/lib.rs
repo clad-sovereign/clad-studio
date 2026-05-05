@@ -123,6 +123,13 @@ pub fn blake2b_256(data: Vec<u8>) -> Vec<u8> {
     blake2::blake2b_256(&data)
 }
 
+/// Compute a 16-byte Blake2b-128 hash of `data`.
+///
+/// Used for Substrate `Blake2_128Concat` storage key hashing.
+pub fn blake2b_128(data: Vec<u8>) -> Vec<u8> {
+    blake2::blake2b_128(&data)
+}
+
 // ── Phase 2: Extrinsic free functions ────────────────────────────────────────
 
 /// Build SCALE-encoded call data by pallet + call name with pre-encoded args.

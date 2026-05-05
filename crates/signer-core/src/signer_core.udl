@@ -180,6 +180,8 @@ namespace signer_core {
 
     bytes blake2b_256(bytes data);
 
+    bytes blake2b_128(bytes data);
+
     // ── Phase 2: extrinsic ────────────────────────────────────────────────
     [Throws=CryptoError]
     bytes build_call_data(string pallet_name, string call_name, sequence<bytes> args);

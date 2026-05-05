@@ -142,7 +142,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Android — cross-compile per-ABI .so files via cargo-ndk, build the AAR,
-  # and run the instrumented test against an API-30 x86_64 emulator via
+  # and run the instrumented test against an API-33 x86_64 emulator via
   # reactivecircus/android-emulator-runner. KVM is available on ubuntu-latest.
   # ---------------------------------------------------------------------------
   android-aar:
@@ -203,21 +203,21 @@ jobs:
             ~/.gradle/wrapper
           key: signer-core-gradle-${{ hashFiles('crates/signer-core/android/**/*.gradle.kts', 'crates/signer-core/android/gradle/wrapper/gradle-wrapper.properties') }}
 
-      - name: Install Android emulator system image (API 30 x86_64)
+      - name: Install Android emulator system image (API 33 x86_64)
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "emulator" \
-            "system-images;android-30;default;x86_64" \
+            "system-images;android-33;default;x86_64" \
             "platforms;android-35" >/dev/null
 
       - name: Assemble Android instrumented-test APK
         working-directory: crates/signer-core/android
         run: ./gradlew :sample:assembleDebugAndroidTest --no-daemon
 
-      - name: Run instrumented tests on API-30 x86_64 emulator
+      - name: Run instrumented tests on API-33 x86_64 emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 33
           arch: x86_64
           target: default
           disable-animations: true
